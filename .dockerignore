@@ -1,0 +1,9 @@
+**/bin
+**/obj
+**/node_modules
+**/.angular
+fitness-tracker.api/wwwroot
+fitness-tracker.api/*.db*
+.git
+deploy
+docs

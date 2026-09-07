@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/fitness-tracker.api.tests/">
+    <Project Path="fitness-tracker.api.tests/FitnessTracker.Api.Tests.csproj" />
+  </Folder>
+  <Folder Name="/fitness-tracker.api/">
+    <Project Path="fitness-tracker.api/FitnessTracker.Api.csproj" />
+  </Folder>
+</Solution>
