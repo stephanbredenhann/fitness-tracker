@@ -13,7 +13,7 @@ import { Api, Equipment, EQUIPMENT_LABELS, errorMessage, LibraryExercise, MUSCLE
 import { planEstimate } from '../core/calc';
 
 const INTENSITY = [{ label: 'Light', met: 3.5 }, { label: 'Moderate', met: 5 }, { label: 'Vigorous', met: 8 }];
-const blank = (): PlanItem => ({ name: '', met: 5, sets: 3, reps: 10, weightKg: 0, restSec: 60 });
+const blank = (): PlanItem => ({ name: '', met: 5, sets: 3, reps: 10, weightKg: 0, restSec: 60, durationSec: null });
 
 @Component({
   imports: [DecimalPipe, FormsModule, RouterLink, MatButtonModule, MatFormFieldModule, MatInputModule, MatIconModule, MatSelectModule, MatSlideToggleModule],
@@ -36,15 +36,21 @@ const blank = (): PlanItem => ({ name: '', met: 5, sets: 3, reps: 10, weightKg: 
 
         <section class="panel" style="margin-top:20px">
           <h2>Exercises</h2>
-          <div class="mhead muted small"><span>Exercise</span><span>Sets</span><span>Reps</span><span>kg</span><span>Rest s</span><span></span></div>
+          <div class="mhead muted small"><span>Exercise</span><span>Sets</span><span>Reps / s</span><span>kg</span><span>Rest s</span><span></span></div>
           @for (m of items(); track $index; let i = $index) {
             <div class="mrow">
               <input class="plain" placeholder="Type to search the library" [ngModel]="m.name" (ngModelChange)="rename(i, $event)" [ngModelOptions]="{ standalone: true }" list="library" maxlength="60" required />
-              <label class="cell"><span>Sets</span><input class="plain" type="number" inputmode="numeric" min="1" max="20" [ngModel]="m.sets" (ngModelChange)="patch(i, { sets: $event })" [ngModelOptions]="{ standalone: true }" /></label>
-              <label class="cell"><span>Reps</span><input class="plain" type="number" inputmode="numeric" min="1" max="500" [ngModel]="m.reps" (ngModelChange)="patch(i, { reps: $event })" [ngModelOptions]="{ standalone: true }" /></label>
+              @if (m.durationSec !== null) {
+                <span class="cell"></span>
+                <label class="cell timed"><span>Hold</span><input class="plain" type="number" inputmode="numeric" min="5" max="3600" step="5" aria-label="Seconds" [ngModel]="m.durationSec" (ngModelChange)="patch(i, { durationSec: $event })" [ngModelOptions]="{ standalone: true }" /><em class="unit">s</em></label>
+              } @else {
+                <label class="cell"><span>Sets</span><input class="plain" type="number" inputmode="numeric" min="1" max="20" [ngModel]="m.sets" (ngModelChange)="patch(i, { sets: $event })" [ngModelOptions]="{ standalone: true }" /></label>
+                <label class="cell"><span>Reps</span><input class="plain" type="number" inputmode="numeric" min="1" max="500" [ngModel]="m.reps" (ngModelChange)="patch(i, { reps: $event })" [ngModelOptions]="{ standalone: true }" /></label>
+              }
               <label class="cell"><span>kg</span><input class="plain" type="number" inputmode="decimal" min="0" max="500" step="0.5" [ngModel]="m.weightKg" (ngModelChange)="patch(i, { weightKg: $event })" [ngModelOptions]="{ standalone: true }" /></label>
               <label class="cell"><span>Rest s</span><input class="plain" type="number" inputmode="numeric" min="0" max="600" step="5" [ngModel]="m.restSec" (ngModelChange)="patch(i, { restSec: $event })" [ngModelOptions]="{ standalone: true }" /></label>
               <div class="rowacts">
+                <button type="button" class="icon-btn" [class.on]="m.durationSec !== null" [attr.aria-pressed]="m.durationSec !== null" title="Time this exercise instead of counting reps" (click)="toggleTimed(i)"><span class="material-icons">timer</span></button>
                 <button type="button" class="icon-btn" (click)="move(i, -1)" [disabled]="i === 0" aria-label="Move up"><span class="material-icons">arrow_upward</span></button>
                 <button type="button" class="icon-btn" (click)="move(i, 1)" [disabled]="i === items().length - 1" aria-label="Move down"><span class="material-icons">arrow_downward</span></button>
                 <button type="button" class="icon-btn" (click)="removeItem(i)" aria-label="Remove exercise"><span class="material-icons">close</span></button>
@@ -87,13 +93,16 @@ const blank = (): PlanItem => ({ name: '', met: 5, sets: 3, reps: 10, weightKg: 
     </div>
   `,
   styles: `
-    .mhead, .mrow { display: grid; grid-template-columns: 1fr 56px 56px 72px 64px 104px; gap: 8px; align-items: center; }
+    .mhead, .mrow { display: grid; grid-template-columns: 1fr 56px 72px 72px 64px 136px; gap: 8px; align-items: center; }
     .mhead { padding: 0 0 6px; }
     .mrow { padding: 4px 0; }
     .cell { display: block; }
     .cell span { display: none; }
+    .cell.timed { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+    .unit { font-style: normal; font-size: 12px; color: var(--ink-2); }
     .rowacts { display: flex; justify-content: flex-end; }
     .rowacts .icon-btn { padding: 4px; }
+    .rowacts .icon-btn.on { color: var(--blue); background: var(--blue-tint); }
     .rowacts .icon-btn:disabled { color: var(--hairline); background: none; cursor: default; }
     .custom { margin-top: 16px; padding: 14px; border: 1px solid var(--hairline); border-radius: var(--radius); background: var(--ground); }
     .custom h3 { font-size: 15px; margin-bottom: 10px; }
@@ -106,7 +115,7 @@ const blank = (): PlanItem => ({ name: '', met: 5, sets: 3, reps: 10, weightKg: 
       .mrow > :nth-child(4) { grid-area: kg; }
       .mrow > :nth-child(5) { grid-area: rest; }
       .rowacts { grid-area: acts; }
-      .cell span { display: block; font-size: 12px; color: var(--ink-2); margin-bottom: 2px; }
+      .cell span { display: block; font-size: 12px; color: var(--ink-2); margin-bottom: 2px; flex-basis: 100%; }
     }
   `,
 })
@@ -119,6 +128,7 @@ export class PlanEditPage {
   library = signal<LibraryExercise[]>([]); weightKg = signal<number | null>(null);
   showCustom = signal(false); cName = signal(''); cEquipment = signal<Equipment>('Dumbbell'); cMuscle = signal<MuscleGroup>('FullBody'); cMet = signal(5);
   busy = signal(false); error = signal('');
+  lastSec = 60;
 
   estimate = computed(() => { const valid = this.items().filter(i => i.name.trim()); return valid.length ? planEstimate(valid, this.weightKg()) : null; });
 
@@ -141,7 +151,12 @@ export class PlanEditPage {
     const hit = this.library().find(x => x.name.toLowerCase() === name.trim().toLowerCase());
     this.patch(i, { name, met: hit?.met ?? 5 });
   }
-  patch(i: number, change: Partial<PlanItem>) { this.items.update(list => list.map((m, j) => j === i ? { ...m, ...change } : m)); }
+  patch(i: number, change: Partial<PlanItem>) {
+    if (change.durationSec) this.lastSec = change.durationSec;
+    this.items.update(list => list.map((m, j) => j === i ? { ...m, ...change } : m));
+  }
+  // A timed exercise is one hold, so sets drops to 1 when the timer is switched on.
+  toggleTimed(i: number) { this.patch(i, this.items()[i].durationSec === null ? { durationSec: this.lastSec, sets: 1 } : { durationSec: null }); }
   addItem() { this.items.update(list => [...list, blank()]); }
   removeItem(i: number) { this.items.update(list => list.length === 1 ? [blank()] : list.filter((_, j) => j !== i)); }
   move(i: number, d: number) {

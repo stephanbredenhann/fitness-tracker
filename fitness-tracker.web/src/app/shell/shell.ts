@@ -1,14 +1,15 @@
 import { Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthStore } from '../core/auth.store';
+import { Logo } from '../shared/logo';
 
 @Component({
   selector: 'app-shell',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, Logo],
   template: `
     <header class="top">
       <div class="wrap bar">
-        <a routerLink="/dashboard" class="brand">Fitness Tracker</a>
+        <a routerLink="/dashboard" class="brand"><app-logo [size]="26" /> Fitness Tracker</a>
         <nav class="tabs" aria-label="Main">
           <a routerLink="/dashboard" routerLinkActive="on"><span class="material-icons" aria-hidden="true">insights</span><span>Dashboard</span></a>
           <a routerLink="/food" routerLinkActive="on"><span class="material-icons" aria-hidden="true">restaurant</span><span>Food</span></a>
@@ -24,7 +25,7 @@ import { AuthStore } from '../core/auth.store';
   styles: `
     .top { background: var(--surface); border-bottom: 1px solid var(--hairline); position: sticky; top: 0; z-index: 10; }
     .bar { display: flex; align-items: center; gap: 24px; height: 56px; }
-    .brand { color: var(--ink); font-weight: 600; white-space: nowrap; }
+    .brand { display: inline-flex; align-items: center; gap: 8px; color: var(--ink); font-weight: 600; white-space: nowrap; }
     .brand:hover { text-decoration: none; }
     .tabs { display: flex; gap: 4px; margin-left: auto; }
     .tabs a { color: var(--ink-2); padding: 6px 10px; border-radius: var(--radius); white-space: nowrap; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; }

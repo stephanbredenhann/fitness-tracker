@@ -7,12 +7,13 @@ import { MatInputModule } from '@angular/material/input';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Api } from '../core/api';
 import { AuthStore } from '../core/auth.store';
+import { Logo } from '../shared/logo';
 
 @Component({
-  imports: [FormsModule, RouterLink, MatButtonModule, MatFormFieldModule, MatInputModule],
+  imports: [FormsModule, RouterLink, MatButtonModule, MatFormFieldModule, MatInputModule, Logo],
   template: `
     <div class="auth"><div class="card">
-      <a class="brand" routerLink="/login">Fitness Tracker</a>
+      <a class="brand" routerLink="/login"><app-logo [size]="24" /> Fitness Tracker</a>
       <h1>Sign in</h1>
       <p class="lead">Weight, meals and training in one place.</p>
       @if (googleEnabled()) {

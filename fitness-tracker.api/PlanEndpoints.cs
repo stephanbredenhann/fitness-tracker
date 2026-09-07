@@ -7,7 +7,7 @@ namespace FitnessTracker.Api;
 public static class PlanEndpoints
 {
     public record LibraryDto(string Name, Equipment Equipment, MuscleGroup Muscle, double Met);
-    public record PlanItemDto(string Name, double Met, int Sets, int Reps, double WeightKg, int RestSec);
+    public record PlanItemDto(string Name, double Met, int Sets, int Reps, double WeightKg, int RestSec, int? DurationSec = null);
     public record PlanDto(string Name, string? Description, bool IsShared, List<PlanItemDto> Items);
 
     public static void MapPlanEndpoints(this IEndpointRouteBuilder app)
@@ -100,7 +100,7 @@ public static class PlanEndpoints
             var copy = new WorkoutPlan
             {
                 OwnerUserId = uid, Name = src.Name + " (copy)", Description = src.Description, IsShared = false,
-                Items = src.Items.OrderBy(i => i.Order).Select(i => new WorkoutPlanItem { Order = i.Order, Name = i.Name, Met = i.Met, Sets = i.Sets, Reps = i.Reps, WeightKg = i.WeightKg, RestSec = i.RestSec }).ToList(),
+                Items = src.Items.OrderBy(i => i.Order).Select(i => new WorkoutPlanItem { Order = i.Order, Name = i.Name, Met = i.Met, Sets = i.Sets, Reps = i.Reps, WeightKg = i.WeightKg, RestSec = i.RestSec, DurationSec = i.DurationSec }).ToList(),
             };
             db.WorkoutPlans.Add(copy);
             await db.SaveChangesAsync();
@@ -129,7 +129,7 @@ public static class PlanEndpoints
             plan.Id, plan.Name, plan.Description, plan.IsShared, plan.CreatedAt,
             IsMine = plan.OwnerUserId == uid,
             OwnerName = plan.OwnerUserId == uid ? "You" : ownerName ?? "A member",
-            Items = items.Select(i => new { i.Name, i.Met, i.Sets, i.Reps, i.WeightKg, i.RestSec }),
+            Items = items.Select(i => new { i.Name, i.Met, i.Sets, i.Reps, i.WeightKg, i.RestSec, i.DurationSec }),
             EstimatedMin = min, EstimatedKcal = kcal,
         };
     }
@@ -141,13 +141,13 @@ public static class PlanEndpoints
         var items = dto.Items ?? [];
         if (items.Count is 0 or > 30) return Invalid("items", "A plan needs between 1 and 30 exercises.");
         if (items.Any(i => string.IsNullOrWhiteSpace(i.Name) || i.Name.Length > 60)) return Invalid("items", "Every exercise needs a name.");
-        if (items.Any(i => i.Met is < 1 or > 15 || i.Sets is < 1 or > 20 || i.Reps is < 1 or > 500 || i.WeightKg is < 0 or > 500 || i.RestSec is < 0 or > 600))
-            return Invalid("items", "Each exercise needs 1 to 20 sets, 1 to 500 reps, 0 to 500 kg and 0 to 600 s rest.");
+        if (items.Any(i => i.Met is < 1 or > 15 || i.Sets is < 1 or > 20 || i.Reps is < 1 or > 500 || i.WeightKg is < 0 or > 500 || i.RestSec is < 0 or > 600 || i.DurationSec is < 5 or > 3600))
+            return Invalid("items", "Each exercise needs 1 to 20 sets, 1 to 500 reps, 0 to 500 kg and 0 to 600 s rest, or 5 to 3600 s for a timed exercise.");
         return null;
     }
 
     static List<WorkoutPlanItem> Items(PlanDto dto) =>
-        dto.Items.Select((i, n) => new WorkoutPlanItem { Order = n, Name = i.Name.Trim(), Met = i.Met, Sets = i.Sets, Reps = i.Reps, WeightKg = i.WeightKg, RestSec = i.RestSec }).ToList();
+        dto.Items.Select((i, n) => new WorkoutPlanItem { Order = n, Name = i.Name.Trim(), Met = i.Met, Sets = i.Sets, Reps = i.Reps, WeightKg = i.WeightKg, RestSec = i.RestSec, DurationSec = i.DurationSec }).ToList();
 
     static string? Clean(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
 

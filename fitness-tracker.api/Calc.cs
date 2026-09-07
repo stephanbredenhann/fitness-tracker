@@ -56,17 +56,27 @@ public static class Calc
 
     public static double? PaceMinPerKm(double? km, int minutes) => km is > 0 ? minutes / km : null;
 
-    // ponytail: 4 s per rep fixed, make it per-exercise if estimates feel off
+    // ponytail: 4 s per rep fixed for reps rows, timed rows use their own seconds
     public static (int Minutes, int? Kcal) PlanEstimate(IEnumerable<WorkoutPlanItem> items, double? bodyKg)
     {
         double minutes = 0, kcal = 0;
         foreach (var i in items)
         {
-            var min = i.Sets * (i.Reps * 4 + i.RestSec) / 60.0;
+            var workSec = i.DurationSec ?? i.Reps * 4;
+            var min = i.Sets * (workSec + i.RestSec) / 60.0;
             minutes += min;
             if (bodyKg is double kg) kcal += Math.Max(i.Met, StrengthMet(i.WeightKg, kg)) * kg * min / 60.0;
         }
         return ((int)Math.Round(minutes), bodyKg is null ? null : (int)Math.Round(kcal));
+    }
+
+    // Counts back from today, or from yesterday when today has nothing logged yet.
+    public static int Streak(IReadOnlySet<DateOnly> activeDays, DateOnly today)
+    {
+        var d = activeDays.Contains(today) ? today : today.AddDays(-1);
+        var n = 0;
+        while (activeDays.Contains(d)) { n++; d = d.AddDays(-1); }
+        return n;
     }
 
     public static int Age(DateOnly birth, DateOnly on)

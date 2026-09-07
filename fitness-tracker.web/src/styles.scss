@@ -52,6 +52,10 @@ p { margin: 0; }
 a { color: var(--blue); text-decoration: none; }
 a:hover { text-decoration: underline; }
 button, input, select { font-family: inherit; }
+summary { cursor: pointer; color: var(--ink-2); list-style: none; display: inline-flex; align-items: center; gap: 4px; }
+summary::-webkit-details-marker { display: none; }
+summary::before { content: 'chevron_right'; font-family: 'Material Icons'; font-size: 18px; line-height: 1; transition: transform .15s; }
+details[open] > summary::before { transform: rotate(90deg); }
 
 .num { font-variant-numeric: tabular-nums; }
 .muted { color: var(--ink-2); }
@@ -105,7 +109,7 @@ button, input, select { font-family: inherit; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip { border: 1px solid var(--hairline); background: var(--surface); border-radius: var(--radius); padding: 6px 10px; cursor: pointer; font-size: 14px; color: var(--ink); }
 .chip:hover { border-color: var(--blue); }
-.chip.on { border-color: var(--blue); background: var(--blue-tint); color: var(--blue); font-weight: 500; }
+.chip.on { border-color: var(--blue); background: var(--blue); color: #fff; font-weight: 500; }
 .plain { height: 40px; border: 1px solid var(--hairline); border-radius: var(--radius); padding: 0 10px; font: inherit; font-size: 14px; color: var(--ink); background: var(--surface); min-width: 0; width: 100%; box-sizing: border-box; }
 .plain:focus { outline: 2px solid var(--blue); outline-offset: -1px; }
 .plain[type=number] { -moz-appearance: textfield; appearance: textfield; text-align: center; padding: 0 4px; }
@@ -121,7 +125,7 @@ button, input, select { font-family: inherit; }
   min-height: 100dvh; display: grid; place-items: start center; padding: 12vh 20px 40px; box-sizing: border-box;
 }
 .auth .card { width: 100%; max-width: 380px; }
-.auth .brand { display: block; color: var(--ink); font-weight: 600; margin-bottom: 28px; }
+.auth .brand { display: inline-flex; align-items: center; gap: 8px; color: var(--ink); font-weight: 600; margin-bottom: 28px; }
 .auth h1 { margin-bottom: 6px; }
 .auth .lead { color: var(--ink-2); margin-bottom: 24px; }
 .auth form { display: grid; gap: 4px; }

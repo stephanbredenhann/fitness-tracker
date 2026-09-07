@@ -12,12 +12,12 @@ export interface FoodEntry { id: number; date: string; name: string; kcal: numbe
 export interface FoodHit { name: string; brand: string | null; barcode: string; kcalPer100g: number; proteinPer100g: number | null; carbsPer100g: number | null; fatPer100g: number | null; }
 export interface RecentFood { name: string; kcal: number; grams: number | null; proteinG: number | null; carbsG: number | null; fatG: number | null; barcode: string | null; }
 export type ExerciseSource = 'Manual' | 'Strava';
-export interface StrengthSet { name: string; sets: number; reps: number; weightKg: number; }
+export interface StrengthSet { name: string; sets: number; reps: number; weightKg: number; durationSec: number | null; }
 export interface Exercise { id: number; date: string; type: ExerciseType; durationMin: number; distanceKm: number | null; kcal: number; source: ExerciseSource; note: string | null; sets: StrengthSet[]; }
 export type Equipment = 'Bodyweight' | 'Dumbbell' | 'Kettlebell' | 'Band' | 'AbWheel' | 'Other';
 export type MuscleGroup = 'Chest' | 'Back' | 'Shoulders' | 'Arms' | 'Legs' | 'Core' | 'FullBody';
 export interface LibraryExercise { id: number; name: string; equipment: Equipment; muscle: MuscleGroup; met: number; mine: boolean; }
-export interface PlanItem { name: string; met: number; sets: number; reps: number; weightKg: number; restSec: number; }
+export interface PlanItem { name: string; met: number; sets: number; reps: number; weightKg: number; restSec: number; durationSec: number | null; }
 export interface WorkoutPlan {
   id: number; name: string; description: string | null; isShared: boolean; isMine: boolean; ownerName: string;
   items: PlanItem[]; estimatedMin: number; estimatedKcal: number | null;
@@ -29,6 +29,7 @@ export interface Dashboard {
   weights: WeighIn[];
   days: { date: string; intake: number; burn: number; deficit: number }[];
   bmr: number | null; tdee: number | null; goalKg: number; startKg: number | null; latestKg: number | null; latestDate: string | null;
+  streak: number; activeToday: boolean;
 }
 export interface AdminUser { id: string; email: string; displayName: string | null; emailConfirmed: boolean; isAdmin: boolean; disabled: boolean; createdAt: string; lastSeenAt: string | null; }
 

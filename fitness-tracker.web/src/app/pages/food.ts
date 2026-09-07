@@ -99,7 +99,7 @@ import { DateNav } from '../shared/date-nav';
     .portion { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 12px; padding: 12px; background: var(--blue-tint); border-radius: var(--radius); }
     .grams { width: 120px; }
     .manual { margin-top: 20px; }
-    .manual summary { cursor: pointer; color: var(--blue); font-weight: 500; margin-bottom: 12px; }
+    .manual summary { font-weight: 500; margin-bottom: 12px; }
   `,
 })
 export class FoodPage {

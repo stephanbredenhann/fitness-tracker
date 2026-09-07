@@ -6,6 +6,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Api, errorMessage, WorkoutPlan } from '../core/api';
+import { describeSet } from '../core/calc';
 
 @Component({
   imports: [RouterLink, MatButtonModule, MatIconModule, MatProgressBarModule, MatSlideToggleModule],
@@ -25,13 +26,14 @@ import { Api, errorMessage, WorkoutPlan } from '../core/api';
             @for (p of mine(); track p.id) {
               <li>
                 <div class="name">
-                  <a [routerLink]="['/plans', p.id]" class="title">{{ p.name }}</a>
+                  <a [routerLink]="['/plans', p.id]" class="title">{{ p.name }}</a> @if (p.isShared) { <span class="tag">Shared</span> }
                   <span class="sub">{{ meta(p) }}</span>
                   @if (p.description) { <span class="sub">{{ p.description }}</span> }
                 </div>
                 <div class="acts">
-                  <mat-slide-toggle [checked]="p.isShared" (change)="share(p, $event.checked)" aria-label="Share with everyone">{{ p.isShared ? 'Shared' : 'Private' }}</mat-slide-toggle>
-                  <a mat-stroked-button [routerLink]="['/exercise']" [queryParams]="{ plan: p.id }">Log</a>
+                  <mat-slide-toggle [checked]="p.isShared" (change)="share(p, $event.checked)" >Share with everyone</mat-slide-toggle>
+                  <a mat-flat-button [routerLink]="['/workout', p.id]">Start</a>
+                  <a mat-button [routerLink]="['/exercise']" [queryParams]="{ plan: p.id }">Quick log</a>
                   <a mat-button [routerLink]="['/plans', p.id]">Edit</a>
                   <button type="button" class="icon-btn" (click)="remove(p)" aria-label="Delete plan"><span class="material-icons">close</span></button>
                 </div>
@@ -52,11 +54,12 @@ import { Api, errorMessage, WorkoutPlan } from '../core/api';
                   <span class="sub">{{ meta(p) }}</span>
                   @if (p.description) { <span class="sub">{{ p.description }}</span> }
                   <details class="items"><summary>Exercises</summary>
-                    <ul>@for (i of p.items; track $index) { <li>{{ i.name }} <span class="muted">{{ i.sets }} × {{ i.reps }}{{ i.weightKg ? ' @ ' + i.weightKg + ' kg' : '' }}</span></li> }</ul>
+                    <ul>@for (i of p.items; track $index) { <li>{{ i.name }} <span class="muted">{{ describeSet(i) }}</span></li> }</ul>
                   </details>
                 </div>
                 <div class="acts">
-                  <a mat-stroked-button [routerLink]="['/exercise']" [queryParams]="{ plan: p.id }">Log</a>
+                  <a mat-flat-button [routerLink]="['/workout', p.id]">Start</a>
+                  <a mat-button [routerLink]="['/exercise']" [queryParams]="{ plan: p.id }">Quick log</a>
                   <button mat-button type="button" (click)="copy(p)">Copy to mine</button>
                 </div>
               </li>
@@ -71,7 +74,6 @@ import { Api, errorMessage, WorkoutPlan } from '../core/api';
     .title { font-weight: 500; color: var(--ink); }
     .acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .items { margin-top: 6px; font-size: 13px; }
-    .items summary { cursor: pointer; color: var(--blue); }
     .items ul { list-style: none; margin: 6px 0 0; padding: 0 0 0 4px; }
     .items li { padding: 2px 0; border: 0; display: block; }
     @media (max-width: 560px) { .plans li .name { flex-basis: 100%; } .acts { width: 100%; justify-content: flex-end; } }
@@ -80,6 +82,7 @@ import { Api, errorMessage, WorkoutPlan } from '../core/api';
 export class PlansPage {
   private api = inject(Api); private snack = inject(MatSnackBar);
   mine = signal<WorkoutPlan[]>([]); shared = signal<WorkoutPlan[]>([]); loading = signal(true); error = signal('');
+  describeSet = describeSet;
 
   constructor() { this.load(); }
 

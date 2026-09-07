@@ -3,7 +3,6 @@ import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
-import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -13,10 +12,11 @@ import { BaseChartDirective } from 'ng2-charts';
 import { ChartConfiguration } from 'chart.js';
 import { Api, errorMessage, Exercise, ExerciseType, LibraryExercise, StravaStatus, StrengthSet, WeighIn } from '../core/api';
 import { AuthStore } from '../core/auth.store';
-import { CARDIO_TYPES, exerciseKcal, formatPace, paceMinPerKm, volumeKg } from '../core/calc';
+import { CARDIO_TYPES, describeSet, exerciseKcal, formatPace, paceMinPerKm, volumeKg } from '../core/calc';
 import { addDays, shortDate, today } from '../core/dates';
 import { DateNav } from '../shared/date-nav';
 import { BLUE, chartBase } from '../shared/chart-defaults';
+import { Segmented } from '../shared/segmented';
 
 export const EXERCISE_LABELS: Record<ExerciseType, string> = {
   Walking: 'Walking', Running: 'Running', Cycling: 'Cycling', Swimming: 'Swimming', Strength: 'Strength',
@@ -30,7 +30,7 @@ const METRICS: Record<Metric, { label: string; unit: string }> = {
 };
 
 @Component({
-  imports: [DecimalPipe, FormsModule, RouterLink, MatButtonModule, MatButtonToggleModule, MatFormFieldModule, MatInputModule, MatIconModule, MatProgressBarModule, DateNav, BaseChartDirective],
+  imports: [DecimalPipe, FormsModule, RouterLink, MatButtonModule, MatFormFieldModule, MatInputModule, MatIconModule, MatProgressBarModule, DateNav, BaseChartDirective, Segmented],
   template: `
     @if (loading()) { <mat-progress-bar class="loading" mode="indeterminate" aria-label="Loading" /> }
     <div class="stack">
@@ -55,7 +55,7 @@ const METRICS: Record<Metric, { label: string; unit: string }> = {
                   <span class="sub">{{ describe(e) }} @if (e.note) { · {{ e.note }} }</span>
                   @if (e.sets.length) {
                     <details class="sets"><summary>{{ e.sets.length }} movement{{ e.sets.length === 1 ? '' : 's' }}</summary>
-                      <ul>@for (s of e.sets; track $index) { <li>{{ s.name }} <span class="muted">{{ s.sets }} × {{ s.reps }}{{ s.weightKg ? ' @ ' + s.weightKg + ' kg' : '' }}</span></li> }</ul>
+                      <ul>@for (s of e.sets; track $index) { <li>{{ s.name }} <span class="muted">{{ describeSet(s) }}</span></li> }</ul>
                     </details>
                   }
                 </div>
@@ -89,14 +89,22 @@ const METRICS: Record<Metric, { label: string; unit: string }> = {
 
           @if (type() === 'Strength') {
             <div class="movements">
-              <div class="mhead muted small"><span>Movement</span><span>Sets</span><span>Reps</span><span>kg</span><span></span></div>
+              <div class="mhead muted small"><span>Movement</span><span>Sets</span><span>Reps / s</span><span>kg</span><span></span></div>
               @for (m of movements(); track $index; let i = $index) {
                 <div class="mrow">
                   <input class="plain" placeholder="e.g. Dumbbell press" [ngModel]="m.name" (ngModelChange)="patch(i, { name: $event })" [ngModelOptions]="{ standalone: true }" list="library" maxlength="60" />
-                  <input class="plain num" type="number" inputmode="numeric" min="1" max="20" [ngModel]="m.sets" (ngModelChange)="patch(i, { sets: $event })" [ngModelOptions]="{ standalone: true }" aria-label="Sets" />
-                  <input class="plain num" type="number" inputmode="numeric" min="1" max="500" [ngModel]="m.reps" (ngModelChange)="patch(i, { reps: $event })" [ngModelOptions]="{ standalone: true }" aria-label="Reps" />
+                  @if (m.durationSec !== null) {
+                    <span></span>
+                    <span class="timed"><input class="plain num" type="number" inputmode="numeric" min="5" max="3600" step="5" [ngModel]="m.durationSec" (ngModelChange)="patch(i, { durationSec: $event })" [ngModelOptions]="{ standalone: true }" aria-label="Seconds" /><em class="unit">s</em></span>
+                  } @else {
+                    <input class="plain num" type="number" inputmode="numeric" min="1" max="20" [ngModel]="m.sets" (ngModelChange)="patch(i, { sets: $event })" [ngModelOptions]="{ standalone: true }" aria-label="Sets" />
+                    <input class="plain num" type="number" inputmode="numeric" min="1" max="500" [ngModel]="m.reps" (ngModelChange)="patch(i, { reps: $event })" [ngModelOptions]="{ standalone: true }" aria-label="Reps" />
+                  }
                   <input class="plain num" type="number" inputmode="decimal" min="0" max="500" step="0.5" [ngModel]="m.weightKg" (ngModelChange)="patch(i, { weightKg: $event })" [ngModelOptions]="{ standalone: true }" aria-label="Weight in kg" />
-                  <button type="button" class="icon-btn" (click)="removeMovement(i)" aria-label="Remove movement"><span class="material-icons">close</span></button>
+                  <div class="rowacts">
+                    <button type="button" class="icon-btn" [class.on]="m.durationSec !== null" [attr.aria-pressed]="m.durationSec !== null" title="Time this exercise instead of counting reps" (click)="toggleTimed(i)"><span class="material-icons">timer</span></button>
+                    <button type="button" class="icon-btn" (click)="removeMovement(i)" aria-label="Remove movement"><span class="material-icons">close</span></button>
+                  </div>
                 </div>
               }
               <datalist id="library">@for (x of library(); track x.id) { <option [value]="x.name"></option> }</datalist>
@@ -123,18 +131,13 @@ const METRICS: Record<Metric, { label: string; unit: string }> = {
       <section class="panel">
         <div class="row between wrap-row" style="margin-bottom:14px">
           <h2 style="margin:0">Trends</h2>
-          <mat-button-toggle-group [value]="days()" (change)="days.set($event.value)" hideSingleSelectionIndicator aria-label="Range">
-            <mat-button-toggle [value]="30">30 days</mat-button-toggle>
-            <mat-button-toggle [value]="90">90 days</mat-button-toggle>
-          </mat-button-toggle-group>
+          <app-segmented [(value)]="days" [options]="ranges" label="Range" />
         </div>
-        <div class="chips" style="margin-bottom:12px">
-          @for (t of trendTypes; track t) { <button type="button" class="chip" [class.on]="trendType() === t" (click)="setTrendType(t)">{{ labels[t] }}</button> }
+        <div style="margin-bottom:12px">
+          <app-segmented [value]="trendType()" (valueChange)="setTrendType($event)" [options]="trendTypeOptions" label="Activity" />
         </div>
         @if (sessions().length) {
-          <mat-button-toggle-group class="metrics" [value]="metric()" (change)="metric.set($event.value)" hideSingleSelectionIndicator aria-label="Metric">
-            @for (m of metricsFor(); track m) { <mat-button-toggle [value]="m">{{ metricInfo[m].label }}</mat-button-toggle> }
-          </mat-button-toggle-group>
+          <app-segmented class="metrics" [(value)]="metric" [options]="metricOptions()" label="Metric" />
           <div class="chart"><canvas baseChart [type]="metric() === 'pace' ? 'line' : 'bar'" [data]="trendData()" [options]="trendOptions()"></canvas></div>
           <p class="muted small" style="margin-top:10px">{{ summary() }}</p>
         } @else { <p class="empty">No {{ labels[trendType()].toLowerCase() }} in the last {{ days() }} days.</p> }
@@ -145,27 +148,33 @@ const METRICS: Record<Metric, { label: string; unit: string }> = {
     .spin { animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .sets { margin-top: 4px; font-size: 13px; }
-    .sets summary { cursor: pointer; color: var(--blue); }
     .sets ul { list-style: none; margin: 6px 0 0; padding: 0 0 0 4px; }
     .sets li { padding: 2px 0; }
     .movements { margin: 0 0 12px; }
-    .mhead, .mrow { display: grid; grid-template-columns: 1fr 56px 56px 72px 32px; gap: 8px; align-items: center; }
+    .mhead, .mrow { display: grid; grid-template-columns: 1fr 56px 72px 72px 64px; gap: 8px; align-items: center; }
+    .timed { display: flex; align-items: center; gap: 4px; }
+    .unit { font-style: normal; font-size: 12px; color: var(--ink-2); }
+    .rowacts { display: flex; justify-content: flex-end; }
+    .rowacts .icon-btn { padding: 4px; }
+    .rowacts .icon-btn.on { color: var(--blue); background: var(--blue-tint); }
     .mhead { padding: 0 0 6px; }
     .mrow { padding: 4px 0; }
-    .metrics { margin-bottom: 12px; }
+    .metrics { display: block; margin-bottom: 12px; }
     .chart { position: relative; height: 240px; }
     .wrap-row { flex-wrap: wrap; }
     @media (max-width: 560px) {
-      .mhead, .mrow { grid-template-columns: 1fr 48px 48px 60px 28px; gap: 6px; }
+      .mhead, .mrow { grid-template-columns: 1fr 48px 60px 60px 56px; gap: 6px; }
       .chart { height: 200px; }
     }
   `,
 })
 export class ExercisePage {
   private api = inject(Api); private snack = inject(MatSnackBar); private auth = inject(AuthStore);
-  labels = EXERCISE_LABELS;
-  strava = signal<StravaStatus | null>(null); syncing = signal(false); order = ORDER; metricInfo = METRICS;
+  labels = EXERCISE_LABELS; describeSet = describeSet;
+  strava = signal<StravaStatus | null>(null); syncing = signal(false); order = ORDER;
   trendTypes: TrendType[] = ['Running', 'Walking', 'Cycling', 'Strength'];
+  trendTypeOptions = this.trendTypes.map(t => ({ value: t, label: EXERCISE_LABELS[t] }));
+  ranges = [{ value: 30, label: '30 days' }, { value: 90, label: '90 days' }];
   todayIso = today();
   date = signal(today());
   entries = signal<Exercise[]>([]); loading = signal(true);
@@ -173,8 +182,8 @@ export class ExercisePage {
   weightKg = signal<number | null>(null);
   type = signal<ExerciseType>('Running'); minutes = signal<number | null>(30); distanceKm = signal<number | null>(null);
   kcal = signal<number | null>(null); note = signal('');
-  movements = signal<StrengthSet[]>([{ name: '', sets: 3, reps: 10, weightKg: 0 }]);
-  busy = signal(false); error = signal('');
+  movements = signal<StrengthSet[]>([{ name: '', sets: 3, reps: 10, weightKg: 0, durationSec: null }]);
+  busy = signal(false); error = signal(''); lastSec = 60;
   days = signal(30); trendType = signal<TrendType>('Running'); metric = signal<Metric>('distance');
   range = signal<Exercise[]>([]);
 
@@ -190,6 +199,7 @@ export class ExercisePage {
 
   sessions = computed(() => this.range().filter(e => e.type === this.trendType()));
   metricsFor = computed<Metric[]>(() => this.trendType() === 'Strength' ? ['volume', 'kcal'] : ['distance', 'pace', 'kcal']);
+  metricOptions = computed(() => this.metricsFor().map(m => ({ value: m, label: METRICS[m].label })));
 
   constructor() {
     effect(() => { this.load(this.date()); });
@@ -223,7 +233,7 @@ export class ExercisePage {
     try {
       const plan = await this.api.get<{ name: string; items: StrengthSet[]; estimatedMin: number | null }>(`/api/plans/${id}`);
       this.type.set('Strength'); this.note.set(plan.name);
-      this.movements.set(plan.items.map(i => ({ name: i.name, sets: i.sets, reps: i.reps, weightKg: i.weightKg })));
+      this.movements.set(plan.items.map(i => ({ name: i.name, sets: i.sets, reps: i.reps, weightKg: i.weightKg, durationSec: i.durationSec ?? null })));
       if (plan.estimatedMin) this.minutes.set(plan.estimatedMin);
     } catch { /* plan gone or not shared, keep the empty form */ }
   }
@@ -235,8 +245,12 @@ export class ExercisePage {
     return parts.join(' · ');
   }
 
-  patch(i: number, change: Partial<StrengthSet>) { this.movements.update(list => list.map((m, j) => j === i ? { ...m, ...change } : m)); }
-  addMovement() { this.movements.update(list => [...list, { name: '', sets: 3, reps: 10, weightKg: 0 }]); }
+  patch(i: number, change: Partial<StrengthSet>) {
+    if (change.durationSec) this.lastSec = change.durationSec;
+    this.movements.update(list => list.map((m, j) => j === i ? { ...m, ...change } : m));
+  }
+  toggleTimed(i: number) { this.patch(i, this.movements()[i].durationSec === null ? { durationSec: this.lastSec, sets: 1 } : { durationSec: null }); }
+  addMovement() { this.movements.update(list => [...list, { name: '', sets: 3, reps: 10, weightKg: 0, durationSec: null }]); }
   removeMovement(i: number) { this.movements.update(list => list.filter((_, j) => j !== i)); }
 
   async add() {
@@ -249,7 +263,7 @@ export class ExercisePage {
         sets: strength ? this.movements().filter(m => m.name.trim()) : [],
       });
       this.kcal.set(null); this.note.set(''); this.distanceKm.set(null);
-      if (strength) this.movements.set([{ name: '', sets: 3, reps: 10, weightKg: 0 }]);
+      if (strength) this.movements.set([{ name: '', sets: 3, reps: 10, weightKg: 0, durationSec: null }]);
     } catch (e) { this.error.set(errorMessage(e)); }
     finally { this.busy.set(false); }
   }

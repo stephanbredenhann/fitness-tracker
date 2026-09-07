@@ -2,12 +2,13 @@ import { Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthStore } from '../core/auth.store';
 import { ProfileForm } from '../shared/profile-form';
+import { Logo } from '../shared/logo';
 
 @Component({
-  imports: [ProfileForm],
+  imports: [ProfileForm, Logo],
   template: `
     <div class="auth"><div class="card wide">
-      <span class="brand">Fitness Tracker</span>
+      <span class="brand"><app-logo [size]="24" /> Fitness Tracker</span>
       <h1>A few numbers to start</h1>
       <p class="lead">These set your resting burn. You can change them any time in Settings.</p>
       <app-profile-form [withWeight]="true" submitLabel="Start tracking" (done)="finish()" />

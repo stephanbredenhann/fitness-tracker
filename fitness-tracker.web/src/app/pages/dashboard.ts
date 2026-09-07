@@ -3,7 +3,6 @@ import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
-import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
@@ -13,18 +12,16 @@ import { Api, Dashboard, errorMessage, Exercise, ExerciseType } from '../core/ap
 import { EXERCISE_LABELS } from './exercise';
 import { addDays, shortDate, today } from '../core/dates';
 import { BLUE, chartBase, HAIR, INK2 } from '../shared/chart-defaults';
+import { Segmented } from '../shared/segmented';
 
 @Component({
-  imports: [DecimalPipe, FormsModule, RouterLink, MatButtonModule, MatButtonToggleModule, MatFormFieldModule, MatInputModule, MatProgressBarModule, BaseChartDirective],
+  imports: [DecimalPipe, FormsModule, RouterLink, MatButtonModule, MatFormFieldModule, MatInputModule, MatProgressBarModule, BaseChartDirective, Segmented],
   template: `
     @if (!data() && !error()) { <mat-progress-bar class="loading" mode="indeterminate" aria-label="Loading" /> }
     <div class="stack">
       <div class="row between">
         <h1>Dashboard</h1>
-        <mat-button-toggle-group [value]="days()" (change)="days.set($event.value)" hideSingleSelectionIndicator aria-label="Range">
-          <mat-button-toggle [value]="30">30 days</mat-button-toggle>
-          <mat-button-toggle [value]="90">90 days</mat-button-toggle>
-        </mat-button-toggle-group>
+        <app-segmented [(value)]="days" [options]="ranges" label="Range" />
       </div>
 
       @if (data(); as d) {
@@ -46,7 +43,13 @@ import { BLUE, chartBase, HAIR, INK2 } from '../shared/chart-defaults';
             <div><dt>Eaten</dt><dd>{{ todayRow(d)?.intake ?? 0 }}</dd></div>
             <div><dt>Burn</dt><dd>{{ todayRow(d)?.burn ?? d.tdee ?? '–' }}</dd></div>
             <div><dt>{{ (todayRow(d)?.deficit ?? 0) < 0 ? 'Surplus' : 'Deficit' }}</dt><dd>{{ abs(todayRow(d)?.deficit ?? 0) }}</dd></div>
+            <div><dt>Streak</dt><dd><span class="material-icons flame" [class.on]="d.activeToday" aria-hidden="true">local_fire_department</span>{{ d.streak }}{{ d.streak === 1 ? ' day' : ' days' }}</dd></div>
           </dl>
+          <p class="cap muted small">
+            @if (d.activeToday) { Streak kept today. }
+            @else if (d.streak > 0) { Log any exercise today to keep your streak. }
+            @else { Log an exercise to start a streak. }
+          </p>
           @if (error()) { <p class="error">{{ error() }}</p> }
         </section>
 
@@ -97,6 +100,9 @@ import { BLUE, chartBase, HAIR, INK2 } from '../shared/chart-defaults';
     .today { grid-column: 1 / -1; display: flex; gap: 32px; margin: 4px 0 0; padding-top: 16px; border-top: 1px solid var(--hairline); }
     .today dt { color: var(--ink-2); font-size: 13px; }
     .today dd { margin: 0; font-size: 20px; font-weight: 600; }
+    .flame { font-size: 18px; vertical-align: -3px; color: var(--ink-3); margin-right: 2px; }
+    .flame.on { color: var(--blue); }
+    .cap { grid-column: 1 / -1; margin: 8px 0 0; }
     .chart { position: relative; height: 260px; }
     .mix { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
     .tile { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border: 1px solid var(--hairline); border-radius: var(--radius); color: var(--ink); }
@@ -113,6 +119,7 @@ export class DashboardPage {
   private api = inject(Api);
   todayIso = today();
   days = signal(30);
+  ranges = [{ value: 30, label: '30 days' }, { value: 90, label: '90 days' }];
   data = signal<Dashboard | null>(null); exercises = signal<Exercise[]>([]);
   labels = EXERCISE_LABELS;
   mix = computed(() => {

@@ -5,12 +5,13 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { Api } from '../core/api';
+import { Logo } from '../shared/logo';
 
 @Component({
-  imports: [FormsModule, RouterLink, MatButtonModule, MatFormFieldModule, MatInputModule],
+  imports: [FormsModule, RouterLink, MatButtonModule, MatFormFieldModule, MatInputModule, Logo],
   template: `
     <div class="auth"><div class="card">
-      <a class="brand" routerLink="/login">Fitness Tracker</a>
+      <a class="brand" routerLink="/login"><app-logo [size]="24" /> Fitness Tracker</a>
       @if (sent()) {
         <h1>Check your inbox</h1>
         <p class="lead">If {{ email() }} has an account, a reset link is on its way.</p>

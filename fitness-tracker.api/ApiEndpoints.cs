@@ -9,7 +9,7 @@ public static class ApiEndpoints
     public record ProfileDto(string? DisplayName, double HeightCm, double GoalWeightKg, DateOnly BirthDate, Sex Sex, ActivityLevel ActivityLevel);
     public record WeighInDto(double WeightKg);
     public record FoodDto(DateOnly Date, string Name, int Kcal, double? Grams, double? ProteinG, double? CarbsG, double? FatG, string? Barcode);
-    public record StrengthSetDto(string Name, int Sets, int Reps, double WeightKg);
+    public record StrengthSetDto(string Name, int Sets, int Reps, double WeightKg, int? DurationSec = null);
     public record ExerciseDto(DateOnly Date, ExerciseType Type, int DurationMin, int? Kcal, string? Note, double? DistanceKm = null, List<StrengthSetDto>? Sets = null);
 
     public static void MapApiEndpoints(this IEndpointRouteBuilder app)
@@ -146,9 +146,9 @@ public static class ApiEndpoints
             if (dto.DistanceKm is < 0.01 or > 1000) return Invalid("distanceKm", "Distance must be between 0.01 and 1000 km.");
             var sets = (dto.Sets ?? []).Where(s => !string.IsNullOrWhiteSpace(s.Name)).ToList();
             if (sets.Count > 30) return Invalid("sets", "At most 30 movements per session.");
-            if (sets.Any(s => s.Sets is < 1 or > 20 || s.Reps is < 1 or > 500 || s.WeightKg is < 0 or > 500))
-                return Invalid("sets", "Each movement needs 1 to 20 sets, 1 to 500 reps and a weight between 0 and 500 kg.");
-            var setRows = sets.Select(s => new StrengthSet { Name = s.Name.Trim(), Sets = s.Sets, Reps = s.Reps, WeightKg = s.WeightKg }).ToList();
+            if (sets.Any(s => s.Sets is < 1 or > 20 || s.Reps is < 1 or > 500 || s.WeightKg is < 0 or > 500 || s.DurationSec is < 5 or > 3600))
+                return Invalid("sets", "Each movement needs 1 to 20 sets, 1 to 500 reps and a weight between 0 and 500 kg, or 5 to 3600 s for a timed exercise.");
+            var setRows = sets.Select(s => new StrengthSet { Name = s.Name.Trim(), Sets = s.Sets, Reps = s.Reps, WeightKg = s.WeightKg, DurationSec = s.DurationSec }).ToList();
             int kcal;
             if (dto.Kcal is int given)
             {
@@ -205,6 +205,8 @@ public static class ApiEndpoints
                 dayList.Add(new { Date = d, Intake = intake, Burn = burn, Deficit = burn - intake });
             }
 
+            var activeDays = (await db.Exercises.Where(e => e.UserId == uid).Select(e => e.Date).Distinct().ToListAsync()).ToHashSet();
+
             var latest = weights.LastOrDefault();
             double? bmr = latest is null ? null : Math.Round(Calc.Bmr(latest.WeightKg, profile.HeightCm, Calc.Age(profile.BirthDate, to), profile.Sex));
             return Results.Ok(new
@@ -217,6 +219,8 @@ public static class ApiEndpoints
                 StartKg = weights.FirstOrDefault()?.WeightKg,
                 LatestKg = latest?.WeightKg,
                 LatestDate = latest?.Date,
+                Streak = Calc.Streak(activeDays, to),
+                ActiveToday = activeDays.Contains(to),
             });
         });
     }
@@ -224,7 +228,7 @@ public static class ApiEndpoints
     static object ExerciseView(Exercise e) => new
     {
         e.Id, e.Date, e.Type, e.DurationMin, e.DistanceKm, e.Kcal, e.Source, e.Note,
-        Sets = e.Sets.Select(s => new { s.Name, s.Sets, s.Reps, s.WeightKg }).ToList(),
+        Sets = e.Sets.Select(s => new { s.Name, s.Sets, s.Reps, s.WeightKg, s.DurationSec }).ToList(),
     };
 
     static IResult Invalid(string field, string message) =>

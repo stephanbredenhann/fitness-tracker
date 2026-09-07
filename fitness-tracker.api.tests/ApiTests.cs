@@ -176,6 +176,27 @@ public class ApiTests : IClassFixture<TestApp>
     }
 
     [Fact]
+    public async Task Timed_sets_round_trip()
+    {
+        var c = await _app.LoginAsync("timed@test.local");
+        await c.PutAsJsonAsync("/api/weighins/2026-09-01", new { weightKg = 80 });
+
+        var plan = await c.PostAsJsonAsync("/api/plans", new { name = "Core hold", isShared = false, items = new[] { new { name = "Plank", met = 3.5, sets = 3, reps = 1, weightKg = 0, restSec = 30, durationSec = 60 } } });
+        Assert.Equal(HttpStatusCode.Created, plan.StatusCode);
+        var planId = (await plan.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>()).GetProperty("id").GetInt32();
+        var got = await c.GetFromJsonAsync<System.Text.Json.JsonElement>($"/api/plans/{planId}");
+        Assert.Equal(60, got.GetProperty("items")[0].GetProperty("durationSec").GetInt32());
+
+        var ex = await c.PostAsJsonAsync("/api/exercises", new { date = "2026-09-02", type = "Strength", durationMin = 10, sets = new[] { new { name = "Plank", sets = 3, reps = 1, weightKg = 0, durationSec = 60 } } });
+        Assert.Equal(HttpStatusCode.Created, ex.StatusCode);
+        var logged = await ex.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        Assert.Equal(60, logged.GetProperty("sets")[0].GetProperty("durationSec").GetInt32());
+
+        var tooShort = await c.PostAsJsonAsync("/api/exercises", new { date = "2026-09-02", type = "Strength", durationMin = 10, sets = new[] { new { name = "Plank", sets = 3, reps = 1, weightKg = 0, durationSec = 2 } } });
+        Assert.Equal(HttpStatusCode.BadRequest, tooShort.StatusCode);
+    }
+
+    [Fact]
     public async Task Strava_sync_imports_once_and_computes_kcal()
     {
         var c = await _app.LoginAsync("strava@test.local");

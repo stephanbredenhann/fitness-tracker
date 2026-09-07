@@ -2,12 +2,13 @@ import { Component, effect, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { Api } from '../core/api';
+import { Logo } from '../shared/logo';
 
 @Component({
-  imports: [RouterLink, MatButtonModule],
+  imports: [RouterLink, MatButtonModule, Logo],
   template: `
     <div class="auth"><div class="card">
-      <a class="brand" routerLink="/login">Fitness Tracker</a>
+      <a class="brand" routerLink="/login"><app-logo [size]="24" /> Fitness Tracker</a>
       @switch (state()) {
         @case ('working') { <h1>Confirming your email</h1><p class="lead">One moment.</p> }
         @case ('ok') {

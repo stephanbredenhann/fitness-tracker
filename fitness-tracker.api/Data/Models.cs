@@ -75,6 +75,8 @@ public class StrengthSet
     public int Sets { get; set; }
     public int Reps { get; set; }
     public double WeightKg { get; set; }
+    // Null means reps-based, a value means a timed hold and Reps is ignored.
+    public int? DurationSec { get; set; }
 }
 
 // Picker source for plans and strength logging. OwnerUserId null means a built-in seeded row.
@@ -111,6 +113,8 @@ public class WorkoutPlanItem
     public int Reps { get; set; }
     public double WeightKg { get; set; }
     public int RestSec { get; set; } = 60;
+    // Null means reps-based, a value means a timed hold and Reps is ignored.
+    public int? DurationSec { get; set; }
 }
 
 // One Strava connection per user. Tokens are stored protected with the app's Data Protection keys.

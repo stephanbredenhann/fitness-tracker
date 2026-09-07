@@ -30,15 +30,19 @@ export function formatPace(minPerKm: number | null): string {
   return s === 60 ? `${m + 1}:00` : `${m}:${String(s).padStart(2, '0')}`;
 }
 
-// Mirror of Calc.PlanEstimate: 4 s per rep plus rest, kcal from the higher of the exercise MET and the load-based MET.
+// Mirror of Calc.PlanEstimate: the hold time or 4 s per rep, plus rest, kcal from the higher of the exercise MET and the load-based MET.
 export function planEstimate(items: PlanItem[], bodyKg: number | null): { minutes: number; kcal: number | null } {
   let minutes = 0, kcal = 0;
   for (const i of items) {
-    const min = i.sets * (i.reps * 4 + i.restSec) / 60;
+    const work = i.durationSec ?? i.reps * 4;
+    const min = i.sets * (work + i.restSec) / 60;
     minutes += min;
     if (bodyKg) kcal += Math.max(i.met, strengthMet(i.weightKg, bodyKg)) * bodyKg * min / 60;
   }
   return { minutes: Math.round(minutes), kcal: bodyKg ? Math.round(kcal) : null };
 }
 
-export const volumeKg = (sets: StrengthSet[]) => Math.round(sets.reduce((a, s) => a + s.sets * s.reps * s.weightKg, 0));
+export const volumeKg = (sets: StrengthSet[]) => Math.round(sets.reduce((a, s) => a + (s.durationSec ? 0 : s.sets * s.reps * s.weightKg), 0));
+
+export const describeSet = (s: { sets: number; reps: number; weightKg: number; durationSec: number | null }) =>
+  s.durationSec ? `${s.sets > 1 ? s.sets + ' × ' : ''}${s.durationSec} s${s.weightKg ? ' @ ' + s.weightKg + ' kg' : ''}` : `${s.sets} × ${s.reps}${s.weightKg ? ' @ ' + s.weightKg + ' kg' : ''}`;

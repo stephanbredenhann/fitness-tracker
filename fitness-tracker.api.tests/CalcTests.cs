@@ -90,6 +90,32 @@ public class CalcTests
         Assert.Null(Calc.PlanEstimate(items, null).Kcal);
     }
 
+    [Fact]
+    public void PlanEstimate_uses_duration_for_timed_items()
+    {
+        // 3 x (60 s hold + 40 s rest) = 5 min, Reps ignored
+        var items = new[] { new WorkoutPlanItem { Met = 3.5, Sets = 3, Reps = 10, WeightKg = 0, RestSec = 40, DurationSec = 60 } };
+        var (min, kcal) = Calc.PlanEstimate(items, 80);
+        Assert.Equal(5, min);
+        Assert.Equal((int)Math.Round(3.5 * 80 * 5 / 60.0), kcal);
+    }
+
+    [Fact]
+    public void Streak_counts_back_from_today()
+    {
+        var today = new DateOnly(2026, 9, 7);
+        Assert.Equal(3, Calc.Streak(new HashSet<DateOnly> { today, today.AddDays(-1), today.AddDays(-2) }, today));
+        Assert.Equal(1, Calc.Streak(new HashSet<DateOnly> { today }, today));
+    }
+
+    [Fact]
+    public void Streak_falls_back_to_yesterday_when_today_empty()
+    {
+        var today = new DateOnly(2026, 9, 7);
+        Assert.Equal(2, Calc.Streak(new HashSet<DateOnly> { today.AddDays(-1), today.AddDays(-2) }, today));
+        Assert.Equal(0, Calc.Streak(new HashSet<DateOnly>(), today));
+    }
+
     [Theory]
     [InlineData("Run", ExerciseType.Running)]
     [InlineData("TrailRun", ExerciseType.Running)]
