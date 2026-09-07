@@ -5,6 +5,8 @@ using FitnessTracker.Api.Data;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
@@ -17,6 +19,9 @@ public sealed class TestApp : WebApplicationFactory<Program>
     {
         b.UseSetting("ConnectionStrings:Default", $"Data Source={_db}");
         b.UseSetting("Admin:Email", "admin@test.local");
+        b.UseSetting("Strava:ClientId", "test-client");
+        b.UseSetting("Strava:ClientSecret", "test-secret");
+        b.ConfigureTestServices(s => s.AddHttpClient<StravaClient>().ConfigurePrimaryHttpMessageHandler(() => new FakeStrava()));
     }
 
     public async Task<HttpClient> LoginAsync(string email, bool admin = false)
@@ -117,5 +122,111 @@ public class ApiTests : IClassFixture<TestApp>
         u.LockoutEnd = DateTimeOffset.MaxValue;
         await db.SaveChangesAsync();
         Assert.DoesNotContain(await ReminderService.Due(db, now).ToListAsync(), x => x.Id == u.Id);
+    }
+
+    [Fact]
+    public async Task Backup_then_restore_returns_to_snapshot()
+    {
+        var admin = await _app.LoginAsync("dba@test.local", admin: true);
+        Assert.Equal(HttpStatusCode.OK, (await admin.PutAsJsonAsync("/api/weighins/2026-08-01", new { weightKg = 90 })).StatusCode);
+        var backup = await admin.GetByteArrayAsync("/api/admin/backup");
+        Assert.Equal("SQLite format 3", System.Text.Encoding.ASCII.GetString(backup, 0, 15));
+        await admin.PutAsJsonAsync("/api/weighins/2026-08-02", new { weightKg = 91 });
+        Assert.Equal(2, (await admin.GetFromJsonAsync<List<object>>("/api/weighins"))!.Count);
+
+        using var junk = new MultipartFormDataContent { { new ByteArrayContent(new byte[100]), "file", "junk.bac" } };
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsync("/api/admin/restore", junk)).StatusCode);
+
+        using var form = new MultipartFormDataContent { { new ByteArrayContent(backup), "file", "fitness.bac" } };
+        var res = await admin.PostAsync("/api/admin/restore", form);
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        Assert.Single((await admin.GetFromJsonAsync<List<object>>("/api/weighins"))!);
+    }
+
+    [Fact]
+    public async Task Shared_plans_are_visible_and_copyable_but_not_editable_by_others()
+    {
+        var a = await _app.LoginAsync("plan-a@test.local");
+        var b = await _app.LoginAsync("plan-b@test.local");
+        var item = new { name = "Push-up", met = 5.0, sets = 3, reps = 12, weightKg = 0, restSec = 60 };
+        var shared = await a.PostAsJsonAsync("/api/plans", new { name = "Upper body", description = "Quick", isShared = true, items = new[] { item } });
+        Assert.Equal(HttpStatusCode.Created, shared.StatusCode);
+        var sharedId = (await shared.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>()).GetProperty("id").GetInt32();
+        var secret = await a.PostAsJsonAsync("/api/plans", new { name = "Private", isShared = false, items = new[] { item } });
+        var secretId = (await secret.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>()).GetProperty("id").GetInt32();
+
+        var list = await b.GetFromJsonAsync<System.Text.Json.JsonElement>("/api/plans");
+        var sharedNames = list.GetProperty("shared").EnumerateArray().Select(x => x.GetProperty("name").GetString()).ToList();
+        Assert.Contains("Upper body", sharedNames);
+        Assert.DoesNotContain("Private", sharedNames);
+        Assert.Equal(HttpStatusCode.NotFound, (await b.GetAsync($"/api/plans/{secretId}")).StatusCode);
+
+        var edit = await b.PutAsJsonAsync($"/api/plans/{sharedId}", new { name = "Hijacked", isShared = true, items = new[] { item } });
+        Assert.Equal(HttpStatusCode.NotFound, edit.StatusCode);
+
+        var copy = await b.PostAsync($"/api/plans/{sharedId}/copy", null);
+        Assert.Equal(HttpStatusCode.Created, copy.StatusCode);
+        var copied = await copy.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        Assert.Equal("Upper body (copy)", copied.GetProperty("name").GetString());
+        Assert.True(copied.GetProperty("isMine").GetBoolean());
+        Assert.False(copied.GetProperty("isShared").GetBoolean());
+
+        var library = await b.GetFromJsonAsync<List<System.Text.Json.JsonElement>>("/api/library");
+        Assert.Contains(library!, x => x.GetProperty("name").GetString() == "Ab wheel rollout");
+    }
+
+    [Fact]
+    public async Task Strava_sync_imports_once_and_computes_kcal()
+    {
+        var c = await _app.LoginAsync("strava@test.local");
+        await c.PutAsJsonAsync("/api/weighins/2026-09-01", new { weightKg = 80 });
+        Assert.Equal(HttpStatusCode.BadRequest, (await c.PostAsync("/api/strava/sync", null)).StatusCode);
+
+        using (var scope = _app.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var um = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+            var protector = scope.ServiceProvider.GetRequiredService<IDataProtectionProvider>().CreateProtector("strava");
+            var uid = (await um.FindByEmailAsync("strava@test.local"))!.Id;
+            db.StravaLinks.Add(new StravaLink { UserId = uid, AthleteId = 1, AccessToken = protector.Protect("expired"), RefreshToken = protector.Protect("r1"), ExpiresAt = DateTime.UtcNow.AddMinutes(-1) });
+            await db.SaveChangesAsync();
+        }
+
+        var first = await (await c.PostAsync("/api/strava/sync", null)).Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        Assert.Equal(2, first.GetProperty("imported").GetInt32());
+        Assert.Equal(1, first.GetProperty("skipped").GetInt32());
+        var second = await (await c.PostAsync("/api/strava/sync", null)).Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        Assert.Equal(0, second.GetProperty("imported").GetInt32());
+
+        var list = await c.GetFromJsonAsync<List<System.Text.Json.JsonElement>>("/api/exercises?from=2026-09-01&to=2026-09-07");
+        var run = list!.Single(e => e.GetProperty("type").GetString() == "Running");
+        Assert.Equal("Strava", run.GetProperty("source").GetString());
+        Assert.Equal(5.0, run.GetProperty("distanceKm").GetDouble());
+        Assert.Equal(Calc.ExerciseKcal(ExerciseType.Running, 25, 80, 5, null), run.GetProperty("kcal").GetInt32());
+
+        var status = await c.GetFromJsonAsync<System.Text.Json.JsonElement>("/api/strava/status");
+        Assert.True(status.GetProperty("connected").GetBoolean());
+        Assert.Equal(HttpStatusCode.NoContent, (await c.DeleteAsync("/api/strava/")).StatusCode);
+        Assert.False((await c.GetFromJsonAsync<System.Text.Json.JsonElement>("/api/strava/status")).GetProperty("connected").GetBoolean());
+        Assert.True(FakeStrava.Refreshed);
+    }
+}
+
+// Stands in for Strava: one token refresh, a page with a run, a ride and an unmapped activity, then nothing.
+sealed class FakeStrava : HttpMessageHandler
+{
+    public static bool Refreshed;
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage req, CancellationToken ct)
+    {
+        var path = req.RequestUri!.AbsolutePath;
+        string body = "[]";
+        if (path == "/oauth/token") { Refreshed = true; body = """{"access_token":"a2","refresh_token":"r2","expires_at":4102444800}"""; }
+        else if (path == "/api/v3/athlete/activities" && req.RequestUri.Query.Contains("page=1"))
+            body = """
+            [{"id":101,"sport_type":"Run","start_date_local":"2026-09-05T07:00:00Z","moving_time":1500,"distance":5000},
+             {"id":102,"sport_type":"Ride","start_date_local":"2026-09-06T07:00:00Z","moving_time":3600,"distance":22000},
+             {"id":103,"sport_type":"Golf","start_date_local":"2026-09-06T09:00:00Z","moving_time":7200,"distance":0}]
+            """;
+        return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json") });
     }
 }

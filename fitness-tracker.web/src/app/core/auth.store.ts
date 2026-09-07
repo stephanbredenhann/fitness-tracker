@@ -1,7 +1,7 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { Api } from './api';
 
-export interface Me { email: string; displayName: string | null; role: 'Admin' | 'User'; hasProfile: boolean; googleEnabled: boolean; }
+export interface Me { email: string; displayName: string | null; role: 'Admin' | 'User'; hasProfile: boolean; googleEnabled: boolean; stravaEnabled: boolean; }
 
 @Injectable({ providedIn: 'root' })
 export class AuthStore {

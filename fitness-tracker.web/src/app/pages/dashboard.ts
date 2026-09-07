@@ -1,3 +1,4 @@
+import { DecimalPipe } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -5,16 +6,18 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartConfiguration } from 'chart.js';
-import { Api, Dashboard, errorMessage } from '../core/api';
+import { Api, Dashboard, errorMessage, Exercise, ExerciseType } from '../core/api';
+import { EXERCISE_LABELS } from './exercise';
 import { addDays, shortDate, today } from '../core/dates';
-
-const BLUE = '#2457f5', INK2 = '#5b6b8c', HAIR = '#dce3f0';
+import { BLUE, chartBase, HAIR, INK2 } from '../shared/chart-defaults';
 
 @Component({
-  imports: [FormsModule, RouterLink, MatButtonModule, MatButtonToggleModule, MatFormFieldModule, MatInputModule, BaseChartDirective],
+  imports: [DecimalPipe, FormsModule, RouterLink, MatButtonModule, MatButtonToggleModule, MatFormFieldModule, MatInputModule, MatProgressBarModule, BaseChartDirective],
   template: `
+    @if (!data() && !error()) { <mat-progress-bar class="loading" mode="indeterminate" aria-label="Loading" /> }
     <div class="stack">
       <div class="row between">
         <h1>Dashboard</h1>
@@ -27,7 +30,7 @@ const BLUE = '#2457f5', INK2 = '#5b6b8c', HAIR = '#dce3f0';
       @if (data(); as d) {
         <section class="hero panel">
           <div class="weight">
-            <div class="big num">{{ d.latestKg ?? '–' }}<span class="unit">kg</span></div>
+            <div class="big num">{{ d.latestKg === null ? '–' : (d.latestKg | number:'1.0-1') }}<span class="unit">kg</span></div>
             <p class="muted">
               @if (d.latestKg !== null) {
                 {{ toGo(d) }}
@@ -36,7 +39,7 @@ const BLUE = '#2457f5', INK2 = '#5b6b8c', HAIR = '#dce3f0';
           </div>
           <form class="weigh" (ngSubmit)="saveWeight()">
             <mat-form-field appearance="outline" subscriptSizing="dynamic"><mat-label>Today's weight</mat-label>
-              <input matInput type="number" name="w" [(ngModel)]="todayKg" step="0.1" min="30" max="300" required /><span matTextSuffix>kg</span></mat-form-field>
+              <input matInput type="number" inputmode="decimal" name="w" [(ngModel)]="todayKg" step="0.1" min="30" max="300" required /><span matTextSuffix>kg</span></mat-form-field>
             <button mat-flat-button type="submit" [disabled]="saving()">{{ d.latestDate === todayIso ? 'Update' : 'Log' }}</button>
           </form>
           <dl class="today num">
@@ -46,6 +49,21 @@ const BLUE = '#2457f5', INK2 = '#5b6b8c', HAIR = '#dce3f0';
           </dl>
           @if (error()) { <p class="error">{{ error() }}</p> }
         </section>
+
+        @if (mix().length) {
+          <section class="panel">
+            <h2>Activity</h2>
+            <div class="mix">
+              @for (m of mix(); track m.type) {
+                <a class="tile" routerLink="/exercise">
+                  <strong class="num">{{ m.count }}</strong>
+                  <span>{{ labels[m.type] }}</span>
+                  <span class="muted small num">{{ m.km ? m.km + ' km · ' : '' }}{{ m.kcal }} kcal</span>
+                </a>
+              }
+            </div>
+          </section>
+        }
 
         <section class="panel">
           <h2>Weight</h2>
@@ -80,18 +98,32 @@ const BLUE = '#2457f5', INK2 = '#5b6b8c', HAIR = '#dce3f0';
     .today dt { color: var(--ink-2); font-size: 13px; }
     .today dd { margin: 0; font-size: 20px; font-weight: 600; }
     .chart { position: relative; height: 260px; }
+    .mix { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+    .tile { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border: 1px solid var(--hairline); border-radius: var(--radius); color: var(--ink); }
+    .tile:hover { text-decoration: none; border-color: var(--blue); }
+    .tile strong { font-size: 22px; font-weight: 600; line-height: 1.1; }
     .legend { display: inline-flex; align-items: center; gap: 6px; }
     .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; margin-left: 10px; }
     .sw.filled { background: var(--blue); }
     .sw.hollow { border: 2px solid var(--blue); box-sizing: border-box; }
-    @media (max-width: 560px) { .hero { grid-template-columns: 1fr; } .today { gap: 20px; } }
+    @media (max-width: 560px) { .hero { grid-template-columns: 1fr; } .today { gap: 20px; } .chart { height: 220px; } .big { font-size: 40px; } }
   `,
 })
 export class DashboardPage {
   private api = inject(Api);
   todayIso = today();
   days = signal(30);
-  data = signal<Dashboard | null>(null);
+  data = signal<Dashboard | null>(null); exercises = signal<Exercise[]>([]);
+  labels = EXERCISE_LABELS;
+  mix = computed(() => {
+    const by = new Map<ExerciseType, { type: ExerciseType; count: number; km: number; kcal: number }>();
+    for (const e of this.exercises()) {
+      const m = by.get(e.type) ?? { type: e.type, count: 0, km: 0, kcal: 0 };
+      m.count++; m.km = Math.round((m.km + (e.distanceKm ?? 0)) * 10) / 10; m.kcal += e.kcal;
+      by.set(e.type, m);
+    }
+    return [...by.values()].sort((a, b) => b.count - a.count);
+  });
   todayKg = signal<number | null>(null);
   saving = signal(false); error = signal('');
   abs = Math.abs;
@@ -100,9 +132,13 @@ export class DashboardPage {
 
   async load() {
     try {
-      const d = await this.api.get<Dashboard>('/api/dashboard', { to: this.todayIso, days: this.days() });
-      this.data.set(d);
-      if (this.todayKg() === null) this.todayKg.set(d.latestKg);
+      const from = addDays(this.todayIso, -(this.days() - 1));
+      const [d, ex] = await Promise.all([
+        this.api.get<Dashboard>('/api/dashboard', { to: this.todayIso, days: this.days() }),
+        this.api.get<Exercise[]>('/api/exercises', { from, to: this.todayIso }),
+      ]);
+      this.data.set(d); this.exercises.set(ex);
+      if (this.todayKg() === null) this.todayKg.set(d.latestKg === null ? null : Math.round(d.latestKg * 10) / 10);
     } catch (e) { this.error.set(errorMessage(e)); }
   }
 
@@ -153,15 +189,7 @@ export class DashboardPage {
     };
   });
 
-  private base = {
-    responsive: true, maintainAspectRatio: false, animation: { duration: 250 },
-    interaction: { mode: 'index' as const, intersect: false },
-    plugins: { tooltip: { backgroundColor: '#14213d', titleFont: { weight: 'normal' as const }, padding: 10, displayColors: false } },
-    scales: {
-      x: { grid: { display: false }, border: { color: HAIR }, ticks: { color: INK2, maxTicksLimit: 8, maxRotation: 0 } },
-      y: { grid: { color: HAIR }, border: { display: false }, ticks: { color: INK2, maxTicksLimit: 6 } },
-    },
-  };
+  private base = chartBase;
 
   weightOptions: ChartConfiguration<'line'>['options'] = {
     ...this.base,

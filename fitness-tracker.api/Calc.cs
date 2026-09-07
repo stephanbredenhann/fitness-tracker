@@ -30,8 +30,44 @@ public static class Calc
         [ExerciseType.Yoga] = 2.5,
     };
 
-    public static int ExerciseKcal(ExerciseType type, int minutes, double kg) =>
-        (int)Math.Round(Met[type] * kg * minutes / 60.0);
+    // Speed bands from the ACSM Compendium of Physical Activities. Null when the type has no speed table.
+    public static double? CardioMet(ExerciseType type, double kmh) => type switch
+    {
+        ExerciseType.Walking => kmh < 3.2 ? 2.0 : kmh < 4.0 ? 2.8 : kmh < 4.8 ? 3.0 : kmh < 5.6 ? 3.5 : kmh < 6.4 ? 4.3 : kmh < 7.2 ? 5.0 : 7.0,
+        ExerciseType.Running => kmh < 6.4 ? 6.0 : kmh < 8.0 ? 8.3 : kmh < 9.7 ? 9.8 : kmh < 11.3 ? 11.0 : kmh < 12.9 ? 11.8 : kmh < 14.5 ? 12.8 : kmh < 16.1 ? 14.5 : kmh < 17.7 ? 16.0 : 19.0,
+        ExerciseType.Cycling => kmh < 16 ? 4.0 : kmh < 19 ? 6.8 : kmh < 22 ? 8.0 : kmh < 26 ? 10.0 : kmh < 30 ? 12.0 : 15.8,
+        _ => null,
+    };
+
+    // Resistance training light / moderate / vigorous by load relative to bodyweight.
+    public static double StrengthMet(double loadKg, double bodyKg) =>
+        bodyKg <= 0 ? 3.5 : loadKg / bodyKg >= 0.5 ? 6.0 : loadKg / bodyKg >= 0.2 ? 5.0 : 3.5;
+
+    public static int ExerciseKcal(ExerciseType type, int minutes, double kg) => ExerciseKcal(type, minutes, kg, null, null);
+
+    public static int ExerciseKcal(ExerciseType type, int minutes, double kg, double? distanceKm, IReadOnlyCollection<StrengthSet>? sets)
+    {
+        // ponytail: session-average MET for strength, no per-movement time split
+        var met = distanceKm is > 0 && minutes > 0 ? CardioMet(type, distanceKm.Value / (minutes / 60.0)) : null;
+        met ??= type == ExerciseType.Strength && sets is { Count: > 0 } ? sets.Average(s => StrengthMet(s.WeightKg, kg)) : null;
+        met ??= Met[type];
+        return (int)Math.Round(met.Value * kg * minutes / 60.0);
+    }
+
+    public static double? PaceMinPerKm(double? km, int minutes) => km is > 0 ? minutes / km : null;
+
+    // ponytail: 4 s per rep fixed, make it per-exercise if estimates feel off
+    public static (int Minutes, int? Kcal) PlanEstimate(IEnumerable<WorkoutPlanItem> items, double? bodyKg)
+    {
+        double minutes = 0, kcal = 0;
+        foreach (var i in items)
+        {
+            var min = i.Sets * (i.Reps * 4 + i.RestSec) / 60.0;
+            minutes += min;
+            if (bodyKg is double kg) kcal += Math.Max(i.Met, StrengthMet(i.WeightKg, kg)) * kg * min / 60.0;
+        }
+        return ((int)Math.Round(minutes), bodyKg is null ? null : (int)Math.Round(kcal));
+    }
 
     public static int Age(DateOnly birth, DateOnly on)
     {

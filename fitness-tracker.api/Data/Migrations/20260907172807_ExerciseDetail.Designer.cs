@@ -3,6 +3,7 @@ using System;
 using FitnessTracker.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace FitnessTracker.Api.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260907172807_ExerciseDetail")]
+    partial class ExerciseDetail
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.11");
@@ -186,35 +189,6 @@ namespace FitnessTracker.Api.Data.Migrations
                     b.ToTable("FoodEntries");
                 });
 
-            modelBuilder.Entity("FitnessTracker.Api.Data.LibraryExercise", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("Equipment")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<double>("Met")
-                        .HasColumnType("REAL");
-
-                    b.Property<int>("Muscle")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("OwnerUserId")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("OwnerUserId");
-
-                    b.ToTable("LibraryExercises");
-                });
-
             modelBuilder.Entity("FitnessTracker.Api.Data.Profile", b =>
                 {
                     b.Property<string>("UserId")
@@ -238,33 +212,6 @@ namespace FitnessTracker.Api.Data.Migrations
                     b.HasKey("UserId");
 
                     b.ToTable("Profiles");
-                });
-
-            modelBuilder.Entity("FitnessTracker.Api.Data.StravaLink", b =>
-                {
-                    b.Property<string>("UserId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("AccessToken")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<long>("AthleteId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("ExpiresAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("LastSyncAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("RefreshToken")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("UserId");
-
-                    b.ToTable("StravaLinks");
                 });
 
             modelBuilder.Entity("FitnessTracker.Api.Data.StrengthSet", b =>
@@ -318,76 +265,6 @@ namespace FitnessTracker.Api.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("WeighIns");
-                });
-
-            modelBuilder.Entity("FitnessTracker.Api.Data.WorkoutPlan", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsShared")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("OwnerUserId")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("IsShared");
-
-                    b.HasIndex("OwnerUserId");
-
-                    b.ToTable("WorkoutPlans");
-                });
-
-            modelBuilder.Entity("FitnessTracker.Api.Data.WorkoutPlanItem", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<double>("Met")
-                        .HasColumnType("REAL");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("Order")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("PlanId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("Reps")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("RestSec")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("Sets")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<double>("WeightKg")
-                        .HasColumnType("REAL");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PlanId");
-
-                    b.ToTable("WorkoutPlanItem");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -536,28 +413,11 @@ namespace FitnessTracker.Api.Data.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("FitnessTracker.Api.Data.LibraryExercise", b =>
-                {
-                    b.HasOne("FitnessTracker.Api.Data.AppUser", null)
-                        .WithMany()
-                        .HasForeignKey("OwnerUserId")
-                        .OnDelete(DeleteBehavior.Cascade);
-                });
-
             modelBuilder.Entity("FitnessTracker.Api.Data.Profile", b =>
                 {
                     b.HasOne("FitnessTracker.Api.Data.AppUser", null)
                         .WithOne()
                         .HasForeignKey("FitnessTracker.Api.Data.Profile", "UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("FitnessTracker.Api.Data.StravaLink", b =>
-                {
-                    b.HasOne("FitnessTracker.Api.Data.AppUser", null)
-                        .WithOne()
-                        .HasForeignKey("FitnessTracker.Api.Data.StravaLink", "UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
@@ -576,24 +436,6 @@ namespace FitnessTracker.Api.Data.Migrations
                     b.HasOne("FitnessTracker.Api.Data.AppUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("FitnessTracker.Api.Data.WorkoutPlan", b =>
-                {
-                    b.HasOne("FitnessTracker.Api.Data.AppUser", null)
-                        .WithMany()
-                        .HasForeignKey("OwnerUserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("FitnessTracker.Api.Data.WorkoutPlanItem", b =>
-                {
-                    b.HasOne("FitnessTracker.Api.Data.WorkoutPlan", null)
-                        .WithMany("Items")
-                        .HasForeignKey("PlanId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
@@ -652,11 +494,6 @@ namespace FitnessTracker.Api.Data.Migrations
             modelBuilder.Entity("FitnessTracker.Api.Data.Exercise", b =>
                 {
                     b.Navigation("Sets");
-                });
-
-            modelBuilder.Entity("FitnessTracker.Api.Data.WorkoutPlan", b =>
-                {
-                    b.Navigation("Items");
                 });
 #pragma warning restore 612, 618
         }

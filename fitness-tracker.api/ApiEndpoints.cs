@@ -9,7 +9,8 @@ public static class ApiEndpoints
     public record ProfileDto(string? DisplayName, double HeightCm, double GoalWeightKg, DateOnly BirthDate, Sex Sex, ActivityLevel ActivityLevel);
     public record WeighInDto(double WeightKg);
     public record FoodDto(DateOnly Date, string Name, int Kcal, double? Grams, double? ProteinG, double? CarbsG, double? FatG, string? Barcode);
-    public record ExerciseDto(DateOnly Date, ExerciseType Type, int DurationMin, int? Kcal, string? Note);
+    public record StrengthSetDto(string Name, int Sets, int Reps, double WeightKg);
+    public record ExerciseDto(DateOnly Date, ExerciseType Type, int DurationMin, int? Kcal, string? Note, double? DistanceKm = null, List<StrengthSetDto>? Sets = null);
 
     public static void MapApiEndpoints(this IEndpointRouteBuilder app)
     {
@@ -117,22 +118,37 @@ public static class ApiEndpoints
         api.MapGet("/food/search", async (string q, FoodSearch search, CancellationToken ct) =>
         {
             try { return Results.Ok(await search.SearchAsync(q, ct)); }
-            catch (HttpRequestException) { return Results.Problem("Food search is unavailable right now.", statusCode: 502); }
+            catch (Exception) when (!ct.IsCancellationRequested) { return Results.Problem("Food search is unavailable right now.", statusCode: 502); }
         });
 
         // Exercises
         api.MapGet("/exercises/types", () => Results.Ok(Calc.Met.Select(kv => new { Type = kv.Key, Met = kv.Value })));
 
-        api.MapGet("/exercises", async (DateOnly date, ClaimsPrincipal p, AppDbContext db) =>
+        api.MapGet("/exercises", async (DateOnly? date, DateOnly? from, DateOnly? to, ClaimsPrincipal p, AppDbContext db) =>
         {
             var uid = p.Uid();
-            return Results.Ok(await db.Exercises.Where(e => e.UserId == uid && e.Date == date).OrderBy(e => e.CreatedAt).ToListAsync());
+            var q = db.Exercises.Where(e => e.UserId == uid);
+            if (date is not null) q = q.Where(e => e.Date == date);
+            else
+            {
+                to ??= DateOnly.FromDateTime(DateTime.UtcNow);
+                from = from is null || from < to.Value.AddDays(-365) ? to.Value.AddDays(-365) : from;
+                q = q.Where(e => e.Date >= from && e.Date <= to);
+            }
+            var list = await q.Include(e => e.Sets).OrderBy(e => e.Date).ThenBy(e => e.CreatedAt).ToListAsync();
+            return Results.Ok(list.Select(ExerciseView));
         });
 
         api.MapPost("/exercises", async (ExerciseDto dto, ClaimsPrincipal p, AppDbContext db) =>
         {
             var uid = p.Uid();
             if (dto.DurationMin is < 1 or > 1440) return Invalid("durationMin", "Duration must be between 1 and 1440 minutes.");
+            if (dto.DistanceKm is < 0.01 or > 1000) return Invalid("distanceKm", "Distance must be between 0.01 and 1000 km.");
+            var sets = (dto.Sets ?? []).Where(s => !string.IsNullOrWhiteSpace(s.Name)).ToList();
+            if (sets.Count > 30) return Invalid("sets", "At most 30 movements per session.");
+            if (sets.Any(s => s.Sets is < 1 or > 20 || s.Reps is < 1 or > 500 || s.WeightKg is < 0 or > 500))
+                return Invalid("sets", "Each movement needs 1 to 20 sets, 1 to 500 reps and a weight between 0 and 500 kg.");
+            var setRows = sets.Select(s => new StrengthSet { Name = s.Name.Trim(), Sets = s.Sets, Reps = s.Reps, WeightKg = s.WeightKg }).ToList();
             int kcal;
             if (dto.Kcal is int given)
             {
@@ -145,12 +161,12 @@ public static class ApiEndpoints
             {
                 var kg = await LatestWeight(db, uid, dto.Date);
                 if (kg is null) return Invalid("kcal", "Log a weigh-in first so calories can be estimated.");
-                kcal = Calc.ExerciseKcal(dto.Type, dto.DurationMin, kg.Value);
+                kcal = Calc.ExerciseKcal(dto.Type, dto.DurationMin, kg.Value, dto.DistanceKm, setRows);
             }
-            var e = new Exercise { UserId = uid, Date = dto.Date, Type = dto.Type, DurationMin = dto.DurationMin, Kcal = kcal, Note = dto.Note?.Trim() };
+            var e = new Exercise { UserId = uid, Date = dto.Date, Type = dto.Type, DurationMin = dto.DurationMin, DistanceKm = dto.DistanceKm, Kcal = kcal, Note = dto.Note?.Trim(), Sets = setRows };
             db.Exercises.Add(e);
             await db.SaveChangesAsync();
-            return Results.Created($"/api/exercises/{e.Id}", e);
+            return Results.Created($"/api/exercises/{e.Id}", ExerciseView(e));
         });
 
         api.MapDelete("/exercises/{id:int}", async (int id, ClaimsPrincipal p, AppDbContext db) =>
@@ -205,10 +221,16 @@ public static class ApiEndpoints
         });
     }
 
+    static object ExerciseView(Exercise e) => new
+    {
+        e.Id, e.Date, e.Type, e.DurationMin, e.DistanceKm, e.Kcal, e.Source, e.Note,
+        Sets = e.Sets.Select(s => new { s.Name, s.Sets, s.Reps, s.WeightKg }).ToList(),
+    };
+
     static IResult Invalid(string field, string message) =>
         Results.ValidationProblem(new Dictionary<string, string[]> { [field] = [message] });
 
-    static async Task<double?> LatestWeight(AppDbContext db, string uid, DateOnly onOrBefore) =>
+    internal static async Task<double?> LatestWeight(AppDbContext db, string uid, DateOnly onOrBefore) =>
         await db.WeighIns.Where(w => w.UserId == uid && w.Date <= onOrBefore).OrderByDescending(w => w.Date).Select(w => (double?)w.WeightKg).FirstOrDefaultAsync()
         ?? await db.WeighIns.Where(w => w.UserId == uid).OrderBy(w => w.Date).Select(w => (double?)w.WeightKg).FirstOrDefaultAsync();
 }

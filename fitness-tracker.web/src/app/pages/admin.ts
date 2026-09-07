@@ -20,11 +20,11 @@ import { AuthStore } from '../core/auth.store';
           <tbody>
             @for (u of users(); track u.id) {
               <tr [class.off]="u.disabled">
-                <td>{{ u.email }}</td>
-                <td>{{ u.displayName || '–' }}</td>
-                <td>{{ u.isAdmin ? 'Admin' : 'User' }}</td>
-                <td>{{ u.disabled ? 'Disabled' : u.emailConfirmed ? 'Active' : 'Unconfirmed' }}</td>
-                <td class="num muted">{{ ago(u.lastSeenAt) }}</td>
+                <td data-label="Email">{{ u.email }}</td>
+                <td data-label="Name">{{ u.displayName || '–' }}</td>
+                <td data-label="Role">{{ u.isAdmin ? 'Admin' : 'User' }}</td>
+                <td data-label="Status">{{ u.disabled ? 'Disabled' : u.emailConfirmed ? 'Active' : 'Unconfirmed' }}</td>
+                <td data-label="Last seen" class="num muted">{{ ago(u.lastSeenAt) }}</td>
                 <td class="acts">
                   @if (u.email !== auth.me()?.email) {
                     <button type="button" class="icon-btn" [matMenuTriggerFor]="menu" aria-label="Actions"><span class="material-icons">more_horiz</span></button>
@@ -41,6 +41,18 @@ import { AuthStore } from '../core/auth.store';
           </tbody>
         </table>
       </section>
+
+      <section class="panel">
+        <h2>Database</h2>
+        <p class="muted small" style="margin-bottom:12px">A backup is a snapshot of every account and entry. Restoring replaces the current data with the uploaded file; a safety copy of the current data is kept on the server first.</p>
+        <div class="actions">
+          <a mat-stroked-button href="/api/admin/backup" download>Download backup</a>
+          <input #picker type="file" accept=".bac" (change)="pick($event)" hidden />
+          <button mat-stroked-button type="button" (click)="picker.click()">{{ file()?.name ?? 'Choose .bac file' }}</button>
+          <button mat-flat-button type="button" [disabled]="!file() || restoring()" (click)="restore()">Restore</button>
+        </div>
+        @if (dbMsg()) { <p class="small" style="margin-top:10px" [class.error]="dbError()" [class.muted]="!dbError()">{{ dbMsg() }}</p> }
+      </section>
     </div>
   `,
   styles: `
@@ -52,12 +64,25 @@ import { AuthStore } from '../core/auth.store';
     tr.off td { color: var(--ink-3); }
     .acts { text-align: right; width: 40px; }
     .danger { color: var(--danger); }
+    @media (max-width: 700px) {
+      .table-wrap { padding: 4px 16px; }
+      thead { display: none; }
+      table, tbody, tr, td { display: block; }
+      tr { position: relative; padding: 12px 0; border-bottom: 1px solid var(--hairline); }
+      tr:last-child { border-bottom: 0; }
+      td { padding: 2px 0; border: 0; white-space: normal; }
+      td[data-label]::before { content: attr(data-label); display: inline-block; width: 84px; color: var(--ink-2); font-size: 13px; }
+      td:first-child { font-weight: 500; padding-right: 44px; }
+      td:first-child::before { display: none; }
+      .acts { position: absolute; top: 8px; right: 0; width: auto; padding: 0; }
+    }
   `,
 })
 export class AdminPage {
   private api = inject(Api);
   auth = inject(AuthStore);
   users = signal<AdminUser[]>([]); error = signal('');
+  file = signal<File | null>(null); restoring = signal(false); dbMsg = signal(''); dbError = signal(false);
 
   constructor() { this.load(); }
   async load() { this.users.set(await this.api.get<AdminUser[]>('/api/admin/users')); }
@@ -75,9 +100,24 @@ export class AdminPage {
     catch (e) { this.error.set(errorMessage(e)); }
   }
 
+  pick(e: Event) { this.file.set((e.target as HTMLInputElement).files?.[0] ?? null); this.dbMsg.set(''); }
+
+  async restore() {
+    const f = this.file()!;
+    if (!confirm(`Restore from ${f.name}? All current data is replaced with the contents of this backup. A safety copy of the current data is saved on the server first.`)) return;
+    this.restoring.set(true); this.dbMsg.set(''); this.dbError.set(false);
+    const form = new FormData(); form.append('file', f);
+    try {
+      const r = await this.api.post<{ safetyCopy: string }>('/api/admin/restore', form);
+      this.dbMsg.set(`Restored. Safety copy saved at ${r.safetyCopy}.`); this.file.set(null);
+      await this.load();
+    } catch (e) { this.dbError.set(true); this.dbMsg.set(errorMessage(e, 'Restore failed.')); }
+    finally { this.restoring.set(false); }
+  }
+
   ago(iso: string | null) {
     if (!iso) return 'Never';
-    const h = Math.floor((Date.now() - new Date(iso).getTime()) / 3600000);
+    const h = Math.floor((Date.now() - new Date(iso.endsWith('Z') ? iso : iso + 'Z').getTime()) / 3600000);
     if (h < 1) return 'Just now';
     if (h < 24) return `${h} h ago`;
     const d = Math.floor(h / 24);

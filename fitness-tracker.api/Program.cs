@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text.Json.Serialization;
 using FitnessTracker.Api;
 using FitnessTracker.Api.Data;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
@@ -38,13 +39,33 @@ builder.Services.Configure<SecurityStampValidatorOptions>(o => o.ValidationInter
 
 var googleId = cfg["Authentication:Google:ClientId"];
 var googleEnabled = !string.IsNullOrEmpty(googleId);
+var stravaId = cfg["Strava:ClientId"];
+var stravaEnabled = !string.IsNullOrEmpty(stravaId);
+var auth = builder.Services.AddAuthentication();
 if (googleEnabled)
-    builder.Services.AddAuthentication().AddGoogle(o =>
+    auth.AddGoogle(o =>
     {
         o.ClientId = googleId!;
         o.ClientSecret = cfg["Authentication:Google:ClientSecret"]!;
         o.SignInScheme = IdentityConstants.ExternalScheme;
     });
+if (stravaEnabled)
+    // Strava is a data connection, not a login: the generic handler does state, correlation and the code exchange.
+    auth.AddOAuth("Strava", o =>
+    {
+        o.ClientId = stravaId!;
+        o.ClientSecret = cfg["Strava:ClientSecret"]!;
+        o.AuthorizationEndpoint = "https://www.strava.com/oauth/authorize";
+        o.TokenEndpoint = "https://www.strava.com/oauth/token";
+        o.CallbackPath = "/signin-strava";
+        o.SaveTokens = true;
+        o.SignInScheme = IdentityConstants.ExternalScheme;
+        o.Scope.Add("read,activity:read_all");
+        o.ClaimActions.MapJsonSubKey(ClaimTypes.NameIdentifier, "athlete", "id");
+        o.ClaimActions.MapJsonSubKey(ClaimTypes.Name, "athlete", "firstname");
+        o.Events.OnCreatingTicket = ctx => { ctx.RunClaimActions(ctx.TokenResponse.Response!.RootElement); return Task.CompletedTask; };
+    });
+builder.Services.AddHttpClient<StravaClient>(c => c.Timeout = TimeSpan.FromSeconds(15));
 
 if (cfg["DataProtection:KeysPath"] is { Length: > 0 } keysPath)
     builder.Services.AddDataProtection().SetApplicationName("fitness-tracker").PersistKeysToFileSystem(new DirectoryInfo(keysPath));
@@ -97,8 +118,10 @@ app.Use(async (ctx, next) =>
 });
 
 app.MapGroup("/auth").MapIdentityApi<AppUser>();
-app.MapAuthEndpoints(googleEnabled);
+app.MapAuthEndpoints(googleEnabled, stravaEnabled);
 app.MapApiEndpoints();
+app.MapPlanEndpoints();
+if (stravaEnabled) app.MapStravaEndpoints();
 app.MapAdminEndpoints();
 app.MapFallbackToFile("index.html");
 

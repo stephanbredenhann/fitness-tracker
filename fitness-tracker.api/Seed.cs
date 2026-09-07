@@ -11,6 +11,13 @@ public static class Seed
         var db = sp.GetRequiredService<AppDbContext>();
         await db.Database.MigrateAsync();
 
+        // Insert the whole built-in library once; users add their own rows through the API.
+        if (!await db.LibraryExercises.AnyAsync(x => x.OwnerUserId == null))
+        {
+            db.LibraryExercises.AddRange(LibrarySeed.Rows.Select(r => new LibraryExercise { Name = r.Name, Equipment = r.Equipment, Muscle = r.Muscle, Met = r.Met }));
+            await db.SaveChangesAsync();
+        }
+
         var roles = sp.GetRequiredService<RoleManager<IdentityRole>>();
         if (!await roles.RoleExistsAsync("Admin")) await roles.CreateAsync(new IdentityRole("Admin"));
 

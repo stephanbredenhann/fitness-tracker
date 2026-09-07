@@ -11,7 +11,20 @@ export interface WeighIn { date: string; weightKg: number; }
 export interface FoodEntry { id: number; date: string; name: string; kcal: number; grams: number | null; proteinG: number | null; carbsG: number | null; fatG: number | null; barcode: string | null; }
 export interface FoodHit { name: string; brand: string | null; barcode: string; kcalPer100g: number; proteinPer100g: number | null; carbsPer100g: number | null; fatPer100g: number | null; }
 export interface RecentFood { name: string; kcal: number; grams: number | null; proteinG: number | null; carbsG: number | null; fatG: number | null; barcode: string | null; }
-export interface Exercise { id: number; date: string; type: ExerciseType; durationMin: number; kcal: number; note: string | null; }
+export type ExerciseSource = 'Manual' | 'Strava';
+export interface StrengthSet { name: string; sets: number; reps: number; weightKg: number; }
+export interface Exercise { id: number; date: string; type: ExerciseType; durationMin: number; distanceKm: number | null; kcal: number; source: ExerciseSource; note: string | null; sets: StrengthSet[]; }
+export type Equipment = 'Bodyweight' | 'Dumbbell' | 'Kettlebell' | 'Band' | 'AbWheel' | 'Other';
+export type MuscleGroup = 'Chest' | 'Back' | 'Shoulders' | 'Arms' | 'Legs' | 'Core' | 'FullBody';
+export interface LibraryExercise { id: number; name: string; equipment: Equipment; muscle: MuscleGroup; met: number; mine: boolean; }
+export interface PlanItem { name: string; met: number; sets: number; reps: number; weightKg: number; restSec: number; }
+export interface WorkoutPlan {
+  id: number; name: string; description: string | null; isShared: boolean; isMine: boolean; ownerName: string;
+  items: PlanItem[]; estimatedMin: number; estimatedKcal: number | null;
+}
+export const EQUIPMENT_LABELS: Record<Equipment, string> = { Bodyweight: 'Bodyweight', Dumbbell: 'Dumbbell', Kettlebell: 'Kettlebell', Band: 'Band', AbWheel: 'Ab wheel', Other: 'Other' };
+export const MUSCLE_LABELS: Record<MuscleGroup, string> = { Chest: 'Chest', Back: 'Back', Shoulders: 'Shoulders', Arms: 'Arms', Legs: 'Legs', Core: 'Core', FullBody: 'Full body' };
+export interface StravaStatus { connected: boolean; lastSyncAt: string | null; }
 export interface Dashboard {
   weights: WeighIn[];
   days: { date: string; intake: number; burn: number; deficit: number }[];

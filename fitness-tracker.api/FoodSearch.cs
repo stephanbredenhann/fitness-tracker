@@ -7,7 +7,7 @@ public sealed class FoodSearch(HttpClient http, IMemoryCache cache)
 {
     public record Hit(string Name, string? Brand, string Barcode, double KcalPer100g, double? ProteinPer100g, double? CarbsPer100g, double? FatPer100g);
 
-    // ponytail: search index has no nutrients, so 10 product fetches per query; swap to USDA FDC if this gets slow
+    // ponytail: search index only, never fan out to the product API (it allows ~10 requests per minute per IP)
     public async Task<List<Hit>> SearchAsync(string q, CancellationToken ct)
     {
         q = q.Trim().ToLowerInvariant();
@@ -15,31 +15,30 @@ public sealed class FoodSearch(HttpClient http, IMemoryCache cache)
         return (await cache.GetOrCreateAsync("food:" + q, async e =>
         {
             e.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(24);
-            using var search = await http.GetFromJsonAsync<JsonDocument>(
-                $"https://search.openfoodfacts.org/search?q={Uri.EscapeDataString(q)}&langs=en&page_size=10&fields=code,product_name", ct);
-            var codes = search!.RootElement.GetProperty("hits").EnumerateArray()
-                .Select(h => h.TryGetProperty("code", out var c) ? c.GetString() : null)
-                .Where(c => !string.IsNullOrEmpty(c)).Distinct().ToList();
-            var products = await Task.WhenAll(codes.Select(c => Fetch(c!, ct)));
-            return products.Where(p => p is not null).ToList()!;
+            using var doc = await http.GetFromJsonAsync<JsonDocument>(
+                $"https://search.openfoodfacts.org/search?q={Uri.EscapeDataString(q)}&langs=en&page_size=25&fields=code,product_name,brands,nutriments", ct);
+            return Parse(doc!.RootElement);
         }))!;
     }
 
-    async Task<Hit?> Fetch(string code, CancellationToken ct)
+    public static List<Hit> Parse(JsonElement root)
     {
-        using var doc = await http.GetFromJsonAsync<JsonDocument>(
-            $"https://world.openfoodfacts.org/api/v2/product/{code}?fields=product_name,brands,nutriments,nutriments_estimated", ct);
-        if (!doc!.RootElement.TryGetProperty("product", out var p)) return null;
-        var name = Str(p, "product_name");
-        if (string.IsNullOrWhiteSpace(name)) return null;
-        p.TryGetProperty("nutriments", out var n);
-        p.TryGetProperty("nutriments_estimated", out var est);
-        var kcal = Num(n, "energy-kcal_100g") ?? (Num(n, "energy_100g") is double kj ? kj / 4.184 : (double?)null) ?? Num(est, "energy-kcal_100g");
-        if (kcal is null) return null;
-        return new Hit(name!, Str(p, "brands"), code, Math.Round(kcal.Value),
-            Num(n, "proteins_100g") ?? Num(est, "proteins_100g"),
-            Num(n, "carbohydrates_100g") ?? Num(est, "carbohydrates_100g"),
-            Num(n, "fat_100g") ?? Num(est, "fat_100g"));
+        var hits = new List<Hit>();
+        var seen = new HashSet<string>();
+        if (!root.TryGetProperty("hits", out var arr) || arr.ValueKind != JsonValueKind.Array) return hits;
+        foreach (var h in arr.EnumerateArray())
+        {
+            var code = Str(h, "code");
+            var name = Str(h, "product_name");
+            if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(name) || !seen.Add(code)) continue;
+            h.TryGetProperty("nutriments", out var n);
+            var kcal = Num(n, "energy-kcal_100g") ?? (Num(n, "energy_100g") is double kj ? kj / 4.184 : null);
+            if (kcal is null) continue;
+            var brand = h.TryGetProperty("brands", out var b) && b.ValueKind == JsonValueKind.Array && b.GetArrayLength() > 0 ? b[0].GetString() : Str(h, "brands");
+            hits.Add(new Hit(name, brand, code, Math.Round(kcal.Value), Num(n, "proteins_100g"), Num(n, "carbohydrates_100g"), Num(n, "fat_100g")));
+            if (hits.Count == 10) break;
+        }
+        return hits;
     }
 
     static string? Str(JsonElement e, string key) =>
