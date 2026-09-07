@@ -15,7 +15,7 @@ import { Logo } from '../shared/logo';
       <h1>Choose a new password</h1>
       <p class="lead">For {{ email() }}</p>
       <form (ngSubmit)="submit()">
-        <mat-form-field appearance="outline"><mat-label>New password</mat-label>
+        <mat-form-field><mat-label>New password</mat-label>
           <input matInput type="password" name="password" [(ngModel)]="password" required minlength="8" autocomplete="new-password" />
           <mat-hint>At least 8 characters</mat-hint></mat-form-field>
         @if (error()) { <p class="error">{{ error() }}</p> }

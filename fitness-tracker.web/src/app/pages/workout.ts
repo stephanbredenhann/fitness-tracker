@@ -29,7 +29,7 @@ type DoneSet = { item: number; reps: number; weightKg: number; durationSec: numb
           <section class="panel">
             <h2>Unfinished {{ name() }}</h2>
             <p class="muted small">{{ done().length }} set{{ done().length === 1 ? '' : 's' }} done, started {{ startedTime() }}</p>
-            <div class="actions">
+            <div class="end">
               <button mat-flat-button type="button" (click)="resume()">Resume</button>
               <button mat-button type="button" (click)="discard()">Discard</button>
             </div>
@@ -37,63 +37,65 @@ type DoneSet = { item: number; reps: number; weightKg: number; durationSec: numb
         }
 
         @case ('go') {
-          <div class="row between" style="margin-bottom:16px">
-            <div>
-              <h1 style="font-size:18px">{{ name() }}</h1>
-              <span class="muted small num">Set {{ setNo() }} of {{ totalSets() }} · {{ mmss(elapsed()) }}</span>
+          <div class="session">
+            <div class="page-head">
+              <div class="meta">
+                <h1>{{ name() }}</h1>
+                <p class="muted small num">Set {{ setNo() }} of {{ totalSets() }} · {{ mmss(elapsed()) }}</p>
+              </div>
+              <button type="button" class="icon-btn" (click)="exit()" aria-label="Exit workout"><span class="material-icons">close</span></button>
             </div>
-            <button type="button" class="icon-btn" (click)="exit()" aria-label="Exit workout"><span class="material-icons">close</span></button>
-          </div>
 
-          @if (step(); as s) {
-            <section class="panel screen">
-              @if (s.kind === 'work') {
-                <p class="muted small">Set {{ s.set + 1 }} of {{ item().sets }}</p>
-                <h2 class="big">{{ item().name }}</h2>
-                @if (item().durationSec !== null) {
-                  <div class="digits num">{{ mmss(remaining() ?? 0) }}</div>
-                  <p class="muted">{{ item().durationSec }} s hold</p>
+            @if (step(); as s) {
+              <section class="stage">
+                @if (s.kind === 'work') {
+                  <p class="muted small">Set {{ s.set + 1 }} of {{ item().sets }}</p>
+                  <h2 class="big">{{ item().name }}</h2>
+                  @if (item().durationSec !== null) {
+                    <div class="digits num">{{ mmss(remaining() ?? 0) }}</div>
+                    <p class="muted">{{ item().durationSec }} s hold</p>
+                  } @else {
+                    <p class="target num">{{ item().reps }} reps{{ item().weightKg > 0 ? ' @ ' + kg() + ' kg' : '' }}</p>
+                  }
+                  @if (item().durationSec === null || item().weightKg > 0) {
+                    <div class="vals">
+                      @if (item().durationSec === null) {
+                        <label><span>Reps</span><input class="plain" type="number" inputmode="numeric" min="1" max="500" [ngModel]="reps()" (ngModelChange)="reps.set($event)" /></label>
+                      }
+                      @if (item().weightKg > 0) {
+                        <label><span>kg</span><input class="plain" type="number" inputmode="decimal" step="0.5" min="0" max="500" [ngModel]="kg()" (ngModelChange)="kg.set($event)" /></label>
+                      }
+                    </div>
+                  }
+                  <div class="acts">
+                    @if (item().durationSec !== null) {
+                      <button mat-stroked-button type="button" (click)="toggle()">{{ pausedLeft() === null ? 'Pause' : 'Start' }}</button>
+                    }
+                    <button mat-flat-button type="button" (click)="completeSet()">Done</button>
+                  </div>
                 } @else {
-                  <p class="target num">{{ item().reps }} reps{{ item().weightKg > 0 ? ' @ ' + kg() + ' kg' : '' }}</p>
-                }
-                @if (item().durationSec === null || item().weightKg > 0) {
-                  <div class="vals">
-                    @if (item().durationSec === null) {
-                      <label><span>Reps</span><input class="plain" type="number" inputmode="numeric" min="1" max="500" [ngModel]="reps()" (ngModelChange)="reps.set($event)" /></label>
-                    }
-                    @if (item().weightKg > 0) {
-                      <label><span>kg</span><input class="plain" type="number" inputmode="decimal" step="0.5" min="0" max="500" [ngModel]="kg()" (ngModelChange)="kg.set($event)" /></label>
-                    }
+                  <p class="muted small">Rest</p>
+                  <div class="digits num">{{ mmss(remaining() ?? 0) }}</div>
+                  @if (nextWork(); as n) { <p class="muted">Next: {{ items()[n.item].name }}, set {{ n.set + 1 }} of {{ items()[n.item].sets }}</p> }
+                  <div class="acts">
+                    <button mat-stroked-button type="button" (click)="advance()">Skip</button>
+                    <button mat-stroked-button type="button" (click)="add30()">+30 s</button>
                   </div>
                 }
-                <div class="acts">
-                  @if (item().durationSec !== null) {
-                    <button mat-stroked-button type="button" (click)="toggle()">{{ pausedLeft() === null ? 'Pause' : 'Start' }}</button>
-                  }
-                  <button mat-flat-button type="button" (click)="completeSet()">Done</button>
-                </div>
-              } @else {
-                <p class="muted small">Rest</p>
-                <div class="digits num">{{ mmss(remaining() ?? 0) }}</div>
-                @if (nextWork(); as n) { <p class="muted">Next: {{ items()[n.item].name }}, set {{ n.set + 1 }} of {{ items()[n.item].sets }}</p> }
-                <div class="acts">
-                  <button mat-stroked-button type="button" (click)="advance()">Skip</button>
-                  <button mat-stroked-button type="button" (click)="add30()">+30 s</button>
-                </div>
-              }
-            </section>
-          }
+              </section>
+            }
+          </div>
         }
 
         @case ('finish') {
           <section class="panel">
             <h2>{{ name() }}</h2>
             <p class="muted small num">{{ rows().length }} movement{{ rows().length === 1 ? '' : 's' }} · {{ done().length }} set{{ done().length === 1 ? '' : 's' }} · {{ mmss(elapsed()) }}</p>
-            <ul class="list" style="margin-top:12px">
+            <ul class="list recap">
               @for (r of rows(); track $index) { <li><div class="name">{{ r.name }}</div><span class="val">{{ describeSet(r) }}</span></li> }
             </ul>
             @if (error()) { <p class="error">{{ error() }}</p> }
-            <div class="actions">
+            <div class="end">
               <button mat-flat-button type="button" (click)="log()" [disabled]="busy()">{{ error() ? 'Retry' : 'Log workout' }}</button>
               @if (canResume()) { <button mat-button type="button" (click)="keepGoing()">Keep going</button> }
               <button mat-button type="button" (click)="quit()">Discard</button>
@@ -104,15 +106,25 @@ type DoneSet = { item: number; reps: number; weightKg: number; durationSec: numb
     </div>
   `,
   styles: `
-    .screen { display: flex; flex-direction: column; gap: 12px; min-height: calc(100dvh - 240px); }
+    .session { display: flex; flex-direction: column; min-height: calc(100dvh - 48px); box-sizing: border-box; padding-bottom: env(safe-area-inset-bottom); }
+    .session .page-head { margin-bottom: 16px; }
+    .meta { min-width: 0; flex: 1; flex-shrink: 1; overflow: hidden; }
+    .meta h1 { font-size: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .meta p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .stage { display: flex; flex-direction: column; gap: 12px; flex: 1; }
     .big { font-size: 28px; }
     .target { font-size: 20px; font-weight: 500; }
-    .digits { font-size: 72px; font-weight: 600; line-height: 1; letter-spacing: -0.02em; text-align: center; margin: 16px 0; }
+    .digits { font-size: 72px; font-weight: 700; line-height: 1; letter-spacing: -0.02em; text-align: center; margin: 16px 0; }
     .vals { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .vals:has(> :only-child) { grid-template-columns: 1fr; }
     .vals span { display: block; font-size: 12px; color: var(--ink-2); margin-bottom: 2px; }
     .acts { margin-top: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .acts .mdc-button { height: 56px; font-size: 17px; }
+    .acts .mdc-button { height: 56px; font-size: 17px; white-space: nowrap; }
     .acts > :only-child { grid-column: 1 / -1; }
+    .end { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+    .end .mdc-button { white-space: nowrap; }
+    .end:has(> :nth-child(3)) > :first-child { grid-column: 1 / -1; }
+    .recap { margin-top: 12px; }
   `,
 })
 export class WorkoutPage {

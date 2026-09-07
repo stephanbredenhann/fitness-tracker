@@ -45,7 +45,7 @@ import { AuthStore } from '../core/auth.store';
       <section class="panel">
         <h2>Database</h2>
         <p class="muted small" style="margin-bottom:12px">A backup is a snapshot of every account and entry. Restoring replaces the current data with the uploaded file; a safety copy of the current data is kept on the server first.</p>
-        <div class="actions">
+        <div class="db-acts">
           <a mat-stroked-button href="/api/admin/backup" download>Download backup</a>
           <input #picker type="file" accept=".bac" (change)="pick($event)" hidden />
           <button mat-stroked-button type="button" (click)="picker.click()">{{ file()?.name ?? 'Choose .bac file' }}</button>
@@ -64,6 +64,12 @@ import { AuthStore } from '../core/auth.store';
     tr.off td { color: var(--ink-3); }
     .acts { text-align: right; width: 40px; }
     .danger { color: var(--danger); }
+    .db-acts { display: grid; grid-template-columns: 1fr; gap: 8px; }
+    .db-acts a, .db-acts button { width: 100%; }
+    @media (min-width: 700px) {
+      .db-acts { grid-template-columns: auto auto auto; justify-content: start; }
+      .db-acts a, .db-acts button { width: auto; }
+    }
     @media (max-width: 700px) {
       .table-wrap { padding: 4px 16px; }
       thead { display: none; }

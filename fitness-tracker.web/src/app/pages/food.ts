@@ -15,21 +15,25 @@ import { DateNav } from '../shared/date-nav';
   template: `
     @if (loading()) { <mat-progress-bar class="loading" mode="indeterminate" aria-label="Loading" /> }
     <div class="stack">
-      <div class="row between">
+      <div class="page-head">
         <h1>Food</h1>
         <app-date-nav [(date)]="date" />
       </div>
 
       <section class="panel">
-        <div class="row between totals num">
-          <div><span class="muted small">Eaten</span><br><strong>{{ totals().kcal }}</strong> kcal</div>
+        <span class="muted small">Eaten</span>
+        <div class="totals">
+          <div class="kcal num">{{ totals().kcal }}<span class="unit">kcal</span></div>
           <div class="macros muted small">{{ totals().protein }} g protein · {{ totals().carbs }} g carbs · {{ totals().fat }} g fat</div>
         </div>
         @if (entries().length) {
           <ul class="list">
             @for (e of entries(); track e.id) {
               <li>
-                <div class="name">{{ e.name }} @if (e.grams) { <span class="sub">{{ e.grams }} g</span> }</div>
+                <div class="name">
+                  <span class="trunc">{{ e.name }}</span>
+                  @if (e.grams) { <span class="sub">{{ e.grams }} g</span> }
+                </div>
                 <span class="val">{{ e.kcal }} kcal</span>
                 <button type="button" class="icon-btn" (click)="remove(e)" aria-label="Remove"><span class="material-icons">close</span></button>
               </li>
@@ -40,36 +44,46 @@ import { DateNav } from '../shared/date-nav';
 
       <section class="panel">
         <h2>Add food</h2>
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-form-field>
           <mat-label>Search foods</mat-label>
           <input matInput [ngModel]="query()" (ngModelChange)="onQuery($event)" placeholder="e.g. oats, chicken breast" autocomplete="off" />
           @if (searching()) { <mat-hint>Searching</mat-hint> }
         </mat-form-field>
-        @if (searchError()) { <p class="error" style="margin-top:8px">{{ searchError() }}</p> }
+        @if (searchError()) { <p class="error hint">{{ searchError() }}</p> }
 
         @if (picked(); as h) {
           <form class="portion" (ngSubmit)="addPicked()">
-            <div class="grow"><strong>{{ h.name }}</strong> <span class="muted small">{{ h.brand }} · {{ h.kcalPer100g }} kcal per 100 g</span></div>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="grams"><mat-label>Portion</mat-label>
-              <input matInput type="number" inputmode="decimal" name="grams" [(ngModel)]="grams" min="1" max="5000" required /><span matTextSuffix>g</span></mat-form-field>
-            <button mat-flat-button type="submit">Add {{ scaled(h.kcalPer100g) }} kcal</button>
-            <button mat-button type="button" (click)="picked.set(null)">Cancel</button>
+            <div class="picked">
+              <strong>{{ h.name }}</strong>
+              <span class="muted small">{{ h.brand }} · {{ h.kcalPer100g }} kcal per 100 g</span>
+            </div>
+            <div class="portion-tools">
+              <div class="portion-add">
+                <mat-form-field class="grams"><mat-label>Portion</mat-label>
+                  <input matInput type="number" inputmode="decimal" name="grams" [(ngModel)]="grams" min="1" max="5000" required /><span matTextSuffix>g</span></mat-form-field>
+                <button mat-flat-button type="submit">Add {{ scaled(h.kcalPer100g) }} kcal</button>
+              </div>
+              <button mat-button type="button" class="cancel" (click)="picked.set(null)">Cancel</button>
+            </div>
           </form>
         } @else if (results().length) {
           <ul class="list results">
             @for (h of results(); track h.barcode) {
               <li (click)="picked.set(h)" tabindex="0" (keydown.enter)="picked.set(h)">
-                <div class="name">{{ h.name }} <span class="sub">{{ h.brand }}</span></div>
+                <div class="name">
+                  <span class="trunc">{{ h.name }}</span>
+                  @if (h.brand) { <span class="sub">{{ h.brand }}</span> }
+                </div>
                 <span class="val muted">{{ h.kcalPer100g }} kcal / 100 g</span>
               </li>
             }
           </ul>
         } @else if (query().length > 1 && !searching()) {
-          <p class="muted small" style="margin-top:8px">No matches. Add it manually below.</p>
+          <p class="muted small hint">No matches. Add it manually below.</p>
         }
 
         @if (recent().length && !picked()) {
-          <p class="muted small" style="margin:16px 0 8px">Recent</p>
+          <p class="muted small recent-label">Recent</p>
           <div class="chips">
             @for (r of recent(); track r.name) {
               <button type="button" class="chip" (click)="addRecent(r)">{{ r.name }} <span class="muted">{{ r.kcal }}</span></button>
@@ -81,8 +95,8 @@ import { DateNav } from '../shared/date-nav';
           <summary>Enter manually</summary>
           <form #manual="ngForm" (ngSubmit)="addManual(manual)">
             <div class="fields">
-              <mat-form-field appearance="outline"><mat-label>Name</mat-label><input matInput name="name" [(ngModel)]="mName" required /></mat-form-field>
-              <mat-form-field appearance="outline"><mat-label>Calories</mat-label><input matInput type="number" inputmode="numeric" name="kcal" [(ngModel)]="mKcal" required min="0" max="10000" /><span matTextSuffix>kcal</span></mat-form-field>
+              <mat-form-field><mat-label>Name</mat-label><input matInput name="name" [(ngModel)]="mName" required /></mat-form-field>
+              <mat-form-field><mat-label>Calories</mat-label><input matInput type="number" inputmode="numeric" name="kcal" [(ngModel)]="mKcal" required min="0" max="10000" /><span matTextSuffix>kcal</span></mat-form-field>
             </div>
             @if (addError()) { <p class="error">{{ addError() }}</p> }
             <div class="actions"><button mat-stroked-button type="submit">Add</button></div>
@@ -92,14 +106,36 @@ import { DateNav } from '../shared/date-nav';
     </div>
   `,
   styles: `
-    .totals { margin-bottom: 8px; flex-wrap: wrap; }
-    .totals strong { font-size: 22px; }
+    .totals {
+      display: flex; flex-wrap: nowrap; justify-content: space-between; align-items: baseline;
+      gap: 16px; margin: 4px 0 8px;
+    }
+    .kcal { flex-shrink: 0; font-size: 36px; font-weight: 700; line-height: 1.05; letter-spacing: -0.03em; white-space: nowrap; }
+    .unit { font-size: 16px; font-weight: 500; color: var(--ink-2); margin-left: 6px; }
+    .macros { text-align: right; min-width: 0; }
+    .list .name > .trunc { display: block; }
+    .hint { margin-top: 8px; }
+    .recent-label { margin: 16px 0 8px; }
     .results li { cursor: pointer; }
     .results li:hover, .results li:focus-visible { background: var(--ground); margin: 0 -8px; padding-left: 8px; padding-right: 8px; }
-    .portion { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 12px; padding: 12px; background: var(--blue-tint); border-radius: var(--radius); }
-    .grams { width: 120px; }
+    .portion {
+      display: flex; flex-direction: column; gap: 10px;
+      margin-top: 12px; padding: 12px; background: var(--blue-tint); border-radius: var(--radius);
+    }
+    .picked { min-width: 0; }
+    .picked strong, .picked .muted { display: block; }
+    .portion-tools { display: flex; flex-direction: column; align-items: stretch; gap: 4px; min-width: 0; }
+    .portion-add { display: flex; flex-wrap: nowrap; gap: 10px; align-items: center; min-width: 0; }
+    .grams { flex: 1; min-width: 0; width: auto; }
+    .portion-add > button { flex-shrink: 0; }
+    .cancel { align-self: flex-start; }
     .manual { margin-top: 20px; }
     .manual summary { font-weight: 500; margin-bottom: 12px; }
+    @media (min-width: 560px) {
+      .portion-tools { flex-direction: row; flex-wrap: nowrap; align-items: center; }
+      .portion-add { flex: 1; }
+      .cancel { align-self: center; flex-shrink: 0; }
+    }
   `,
 })
 export class FoodPage {

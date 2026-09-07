@@ -17,10 +17,14 @@ import { addDays, longDate, today } from '../core/dates';
     </div>
   `,
   styles: `
-    .nav { display: inline-flex; align-items: center; gap: 4px; }
-    .icon-btn:hover { color: var(--blue); }
-    .icon-btn:disabled { color: var(--hairline); background: none; cursor: default; }
-    .date { position: relative; font-weight: 600; font-size: 18px; padding: 4px 8px; border-radius: var(--radius); cursor: pointer; }
+    .nav {
+      display: inline-flex; flex-wrap: nowrap; align-items: center; gap: 2px; white-space: nowrap;
+      background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--radius-pill);
+      padding: 2px 6px 2px 2px;
+    }
+    .icon-btn:hover { color: var(--blue); background: var(--blue-tint); }
+    .icon-btn:disabled, .icon-btn:disabled:hover { color: var(--ink-3); background: none; cursor: default; }
+    .date { position: relative; font-weight: 600; font-size: 18px; padding: 4px 8px; border-radius: var(--radius-pill); cursor: pointer; white-space: nowrap; }
     .date:hover { background: var(--ground); }
     .date input { position: absolute; inset: 0; opacity: 0; width: 100%; cursor: pointer; }
   `,

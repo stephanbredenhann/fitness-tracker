@@ -13,25 +13,25 @@ import { today } from '../core/dates';
   template: `
     <form (ngSubmit)="submit()">
       <div class="fields">
-        <mat-form-field appearance="outline"><mat-label>Name</mat-label>
+        <mat-form-field><mat-label>Name</mat-label>
           <input matInput name="displayName" [(ngModel)]="displayName" autocomplete="given-name" /></mat-form-field>
-        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="hinted"><mat-label>Sex</mat-label>
+        <mat-form-field><mat-label>Sex</mat-label>
           <mat-select name="sex" [(ngModel)]="sex" required>
             <mat-option value="Male">Male</mat-option><mat-option value="Female">Female</mat-option>
           </mat-select>
           <mat-hint>Used for the calorie estimate only</mat-hint></mat-form-field>
-        <mat-form-field appearance="outline"><mat-label>Date of birth</mat-label>
+        <mat-form-field><mat-label>Date of birth</mat-label>
           <input matInput type="date" name="birthDate" [(ngModel)]="birthDate" required [max]="maxBirth" /></mat-form-field>
-        <mat-form-field appearance="outline"><mat-label>Height</mat-label>
+        <mat-form-field><mat-label>Height</mat-label>
           <input matInput type="number" inputmode="decimal" name="heightCm" [(ngModel)]="heightCm" required min="100" max="250" step="0.5" /><span matTextSuffix>cm</span></mat-form-field>
         @if (withWeight()) {
-          <mat-form-field appearance="outline"><mat-label>Current weight</mat-label>
+          <mat-form-field><mat-label>Current weight</mat-label>
             <input matInput type="number" inputmode="decimal" name="weightKg" [(ngModel)]="weightKg" required min="30" max="300" step="0.1" /><span matTextSuffix>kg</span></mat-form-field>
         }
-        <mat-form-field appearance="outline"><mat-label>Goal weight</mat-label>
+        <mat-form-field><mat-label>Goal weight</mat-label>
           <input matInput type="number" inputmode="decimal" name="goalWeightKg" [(ngModel)]="goalWeightKg" required min="30" max="300" step="0.1" /><span matTextSuffix>kg</span></mat-form-field>
       </div>
-      <mat-form-field appearance="outline" class="field"><mat-label>Typical day</mat-label>
+      <mat-form-field class="field"><mat-label>Typical day</mat-label>
         <mat-select name="activityLevel" [(ngModel)]="activityLevel" required>
           @for (level of levels; track level) { <mat-option [value]="level">{{ labels[level] }}</mat-option> }
         </mat-select>

@@ -20,7 +20,7 @@ import { Logo } from '../shared/logo';
         <h1>Reset your password</h1>
         <p class="lead">Enter your email and we will send a reset link.</p>
         <form (ngSubmit)="submit()">
-          <mat-form-field appearance="outline"><mat-label>Email</mat-label>
+          <mat-form-field><mat-label>Email</mat-label>
             <input matInput type="email" name="email" [(ngModel)]="email" required autocomplete="email" /></mat-form-field>
           <div class="actions">
             <button mat-flat-button type="submit" [disabled]="busy()">Send reset link</button>

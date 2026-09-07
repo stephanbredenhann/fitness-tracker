@@ -1,19 +1,18 @@
 import { Component, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Api, errorMessage, WorkoutPlan } from '../core/api';
 import { describeSet } from '../core/calc';
 
 @Component({
-  imports: [RouterLink, MatButtonModule, MatIconModule, MatProgressBarModule, MatSlideToggleModule],
+  imports: [RouterLink, MatButtonModule, MatMenuModule, MatProgressBarModule],
   template: `
     @if (loading()) { <mat-progress-bar class="loading" mode="indeterminate" aria-label="Loading" /> }
     <div class="stack">
-      <div class="row between">
+      <div class="page-head">
         <h1>Workout plans</h1>
         <a mat-flat-button routerLink="/plans/new">New plan</a>
       </div>
@@ -26,16 +25,23 @@ import { describeSet } from '../core/calc';
             @for (p of mine(); track p.id) {
               <li>
                 <div class="name">
-                  <a [routerLink]="['/plans', p.id]" class="title">{{ p.name }}</a> @if (p.isShared) { <span class="tag">Shared</span> }
+                  <div class="head">
+                    <a [routerLink]="['/plans', p.id]" class="title">{{ p.name }}</a>
+                    @if (p.isShared) { <span class="tag">Shared</span> }
+                  </div>
                   <span class="sub">{{ meta(p) }}</span>
                   @if (p.description) { <span class="sub">{{ p.description }}</span> }
                 </div>
                 <div class="acts">
-                  <mat-slide-toggle [checked]="p.isShared" (change)="share(p, $event.checked)" >Share with everyone</mat-slide-toggle>
                   <a mat-flat-button [routerLink]="['/workout', p.id]">Start</a>
-                  <a mat-button [routerLink]="['/exercise']" [queryParams]="{ plan: p.id }">Quick log</a>
-                  <a mat-button [routerLink]="['/plans', p.id]">Edit</a>
-                  <button type="button" class="icon-btn" (click)="remove(p)" aria-label="Delete plan"><span class="material-icons">close</span></button>
+                  <button type="button" class="icon-btn" [matMenuTriggerFor]="mineMenu" aria-label="More"><span class="material-icons">more_horiz</span></button>
+                  <mat-menu #mineMenu="matMenu">
+                    <a mat-menu-item [routerLink]="['/exercise']" [queryParams]="{ plan: p.id }">Quick log</a>
+                    <a mat-menu-item [routerLink]="['/plans', p.id]">Edit</a>
+                    <button mat-menu-item (click)="share(p, true)" [disabled]="p.isShared">Share with everyone</button>
+                    <button mat-menu-item (click)="share(p, false)" [disabled]="!p.isShared">Make private</button>
+                    <button mat-menu-item class="danger" (click)="remove(p)">Delete</button>
+                  </mat-menu>
                 </div>
               </li>
             }
@@ -50,7 +56,10 @@ import { describeSet } from '../core/calc';
             @for (p of shared(); track p.id) {
               <li>
                 <div class="name">
-                  <span class="title">{{ p.name }}</span> <span class="muted small">by {{ p.ownerName }}</span>
+                  <div class="head">
+                    <span class="title">{{ p.name }}</span>
+                    <span class="muted small by">by {{ p.ownerName }}</span>
+                  </div>
                   <span class="sub">{{ meta(p) }}</span>
                   @if (p.description) { <span class="sub">{{ p.description }}</span> }
                   <details class="items"><summary>Exercises</summary>
@@ -59,8 +68,11 @@ import { describeSet } from '../core/calc';
                 </div>
                 <div class="acts">
                   <a mat-flat-button [routerLink]="['/workout', p.id]">Start</a>
-                  <a mat-button [routerLink]="['/exercise']" [queryParams]="{ plan: p.id }">Quick log</a>
-                  <button mat-button type="button" (click)="copy(p)">Copy to mine</button>
+                  <button type="button" class="icon-btn" [matMenuTriggerFor]="sharedMenu" aria-label="More"><span class="material-icons">more_horiz</span></button>
+                  <mat-menu #sharedMenu="matMenu">
+                    <a mat-menu-item [routerLink]="['/exercise']" [queryParams]="{ plan: p.id }">Quick log</a>
+                    <button mat-menu-item type="button" (click)="copy(p)">Copy to mine</button>
+                  </mat-menu>
                 </div>
               </li>
             }
@@ -70,13 +82,17 @@ import { describeSet } from '../core/calc';
     </div>
   `,
   styles: `
-    .plans li { align-items: flex-start; flex-wrap: wrap; }
-    .title { font-weight: 500; color: var(--ink); }
-    .acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .plans li { display: grid; grid-template-columns: 1fr auto; align-items: start; gap: 12px; }
+    .head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .title { font-weight: 500; color: var(--ink); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .head .tag { flex-shrink: 0; }
+    .by { flex-shrink: 0; white-space: nowrap; }
+    .acts { display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; }
+    .acts .mdc-button { flex-shrink: 0; white-space: nowrap; }
     .items { margin-top: 6px; font-size: 13px; }
     .items ul { list-style: none; margin: 6px 0 0; padding: 0 0 0 4px; }
     .items li { padding: 2px 0; border: 0; display: block; }
-    @media (max-width: 560px) { .plans li .name { flex-basis: 100%; } .acts { width: 100%; justify-content: flex-end; } }
+    .danger { color: var(--danger); }
   `,
 })
 export class PlansPage {

@@ -24,9 +24,9 @@ import { Logo } from '../shared/logo';
         <h1>Create an account</h1>
         <p class="lead">Use the email you check daily. Reminders go there.</p>
         <form (ngSubmit)="submit()">
-          <mat-form-field appearance="outline"><mat-label>Email</mat-label>
+          <mat-form-field><mat-label>Email</mat-label>
             <input matInput type="email" name="email" [(ngModel)]="email" required autocomplete="email" /></mat-form-field>
-          <mat-form-field appearance="outline"><mat-label>Password</mat-label>
+          <mat-form-field><mat-label>Password</mat-label>
             <input matInput type="password" name="password" [(ngModel)]="password" required minlength="8" autocomplete="new-password" />
             <mat-hint>At least 8 characters</mat-hint></mat-form-field>
           @if (error()) { <p class="error">{{ error() }}</p> }

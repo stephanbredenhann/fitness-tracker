@@ -19,13 +19,13 @@ import { Segmented } from '../shared/segmented';
   template: `
     @if (!data() && !error()) { <mat-progress-bar class="loading" mode="indeterminate" aria-label="Loading" /> }
     <div class="stack">
-      <div class="row between">
+      <div class="page-head">
         <h1>Dashboard</h1>
         <app-segmented [(value)]="days" [options]="ranges" label="Range" />
       </div>
 
       @if (data(); as d) {
-        <section class="hero panel">
+        <section class="hero">
           <div class="weight">
             <div class="big num">{{ d.latestKg === null ? '–' : (d.latestKg | number:'1.0-1') }}<span class="unit">kg</span></div>
             <p class="muted">
@@ -34,17 +34,29 @@ import { Segmented } from '../shared/segmented';
               } @else { No weigh-in yet. }
             </p>
           </div>
-          <form class="weigh" (ngSubmit)="saveWeight()">
-            <mat-form-field appearance="outline" subscriptSizing="dynamic"><mat-label>Today's weight</mat-label>
+          <form class="row weigh" (ngSubmit)="saveWeight()">
+            <mat-form-field class="grow"><mat-label>Today's weight</mat-label>
               <input matInput type="number" inputmode="decimal" name="w" [(ngModel)]="todayKg" step="0.1" min="30" max="300" required /><span matTextSuffix>kg</span></mat-form-field>
             <button mat-flat-button type="submit" [disabled]="saving()">{{ d.latestDate === todayIso ? 'Update' : 'Log' }}</button>
           </form>
-          <dl class="today num">
-            <div><dt>Eaten</dt><dd>{{ todayRow(d)?.intake ?? 0 }}</dd></div>
-            <div><dt>Burn</dt><dd>{{ todayRow(d)?.burn ?? d.tdee ?? '–' }}</dd></div>
-            <div><dt>{{ (todayRow(d)?.deficit ?? 0) < 0 ? 'Surplus' : 'Deficit' }}</dt><dd>{{ abs(todayRow(d)?.deficit ?? 0) }}</dd></div>
-            <div><dt>Streak</dt><dd><span class="material-icons flame" [class.on]="d.activeToday" aria-hidden="true">local_fire_department</span>{{ d.streak }}{{ d.streak === 1 ? ' day' : ' days' }}</dd></div>
-          </dl>
+          <div class="metrics">
+            <div>
+              <span class="muted small">Eaten</span>
+              <strong class="num">{{ todayRow(d)?.intake ?? 0 }}</strong>
+            </div>
+            <div>
+              <span class="muted small">Burn</span>
+              <strong class="num">{{ todayRow(d)?.burn ?? d.tdee ?? '–' }}</strong>
+            </div>
+            <div>
+              <span class="muted small">{{ (todayRow(d)?.deficit ?? 0) < 0 ? 'Surplus' : 'Deficit' }}</span>
+              <strong class="num">{{ abs(todayRow(d)?.deficit ?? 0) }}</strong>
+            </div>
+            <div>
+              <span class="muted small">Streak</span>
+              <strong class="num"><span class="material-icons flame" [class.on]="d.activeToday" aria-hidden="true">local_fire_department</span>{{ d.streak }}{{ d.streak === 1 ? ' day' : ' days' }}</strong>
+            </div>
+          </div>
           <p class="cap muted small">
             @if (d.activeToday) { Streak kept today. }
             @else if (d.streak > 0) { Log any exercise today to keep your streak. }
@@ -60,8 +72,8 @@ import { Segmented } from '../shared/segmented';
               @for (m of mix(); track m.type) {
                 <a class="tile" routerLink="/exercise">
                   <strong class="num">{{ m.count }}</strong>
-                  <span>{{ labels[m.type] }}</span>
-                  <span class="muted small num">{{ m.km ? m.km + ' km · ' : '' }}{{ m.kcal }} kcal</span>
+                  <span class="trunc">{{ labels[m.type] }}</span>
+                  <span class="muted small num trunc">{{ m.km ? m.km + ' km · ' : '' }}{{ m.kcal }} kcal</span>
                 </a>
               }
             </div>
@@ -76,13 +88,13 @@ import { Segmented } from '../shared/segmented';
         </section>
 
         <section class="panel">
-          <div class="row between" style="margin-bottom:14px">
-            <h2 style="margin:0">Daily balance</h2>
+          <div class="row between panel-head">
+            <h2>Daily balance</h2>
             <span class="legend small muted"><i class="sw filled"></i>Deficit <i class="sw hollow"></i>Surplus</span>
           </div>
           @if (d.days.length) {
             <div class="chart"><canvas baseChart type="bar" [data]="deficitData()" [options]="deficitOptions"></canvas></div>
-            <p class="muted small" style="margin-top:10px">Burn is your resting rate at {{ d.bmr }} kcal, times your activity level, plus logged exercise.</p>
+            <p class="muted small note">Burn is your resting rate at {{ d.bmr }} kcal, times your activity level, plus logged exercise.</p>
           } @else {
             <p class="empty">Log <a routerLink="/food">food</a> or <a routerLink="/exercise">exercise</a> to see each day's balance.</p>
           }
@@ -91,28 +103,32 @@ import { Segmented } from '../shared/segmented';
     </div>
   `,
   styles: `
-    .hero { display: grid; grid-template-columns: 1fr auto; gap: 20px 32px; align-items: start; }
-    .big { font-size: 48px; font-weight: 600; line-height: 1; letter-spacing: -0.02em; }
+    .hero { display: grid; gap: 16px; }
+    .big { font-size: 56px; font-weight: 700; line-height: 1; letter-spacing: -0.02em; }
     .unit { font-size: 18px; font-weight: 500; color: var(--ink-2); margin-left: 6px; }
     .weight p { margin-top: 8px; }
-    .weigh { display: flex; gap: 10px; align-items: center; }
-    .weigh mat-form-field { width: 160px; }
-    .today { grid-column: 1 / -1; display: flex; gap: 32px; margin: 4px 0 0; padding-top: 16px; border-top: 1px solid var(--hairline); }
-    .today dt { color: var(--ink-2); font-size: 13px; }
-    .today dd { margin: 0; font-size: 20px; font-weight: 600; }
-    .flame { font-size: 18px; vertical-align: -3px; color: var(--ink-3); margin-right: 2px; }
+    .weigh button { flex-shrink: 0; }
+    .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .metrics > div { background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--radius); padding: 12px 14px; min-width: 0; }
+    .metrics .muted { display: block; }
+    .metrics strong { display: flex; align-items: center; margin-top: 2px; font-size: 20px; font-weight: 600; line-height: 1.2; }
+    .flame { font-size: 18px; color: var(--ink-3); margin-right: 2px; }
     .flame.on { color: var(--blue); }
-    .cap { grid-column: 1 / -1; margin: 8px 0 0; }
-    .chart { position: relative; height: 260px; }
-    .mix { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
-    .tile { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border: 1px solid var(--hairline); border-radius: var(--radius); color: var(--ink); }
-    .tile:hover { text-decoration: none; border-color: var(--blue); }
-    .tile strong { font-size: 22px; font-weight: 600; line-height: 1.1; }
-    .legend { display: inline-flex; align-items: center; gap: 6px; }
+    .cap { margin: 0; }
+    .panel-head { margin-bottom: 14px; }
+    .panel-head h2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .legend { flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
     .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; margin-left: 10px; }
     .sw.filled { background: var(--blue); }
     .sw.hollow { border: 2px solid var(--blue); box-sizing: border-box; }
-    @media (max-width: 560px) { .hero { grid-template-columns: 1fr; } .today { gap: 20px; } .chart { height: 220px; } .big { font-size: 40px; } }
+    .note { margin-top: 10px; }
+    .chart { position: relative; height: 260px; }
+    .mix { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+    .tile { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 12px 14px; border: 1px solid var(--hairline); border-radius: var(--radius); color: var(--ink); }
+    .tile:hover { text-decoration: none; border-color: var(--blue); }
+    .tile strong { font-size: 22px; font-weight: 600; line-height: 1.1; }
+    @media (min-width: 700px) { .metrics { grid-template-columns: repeat(4, 1fr); } }
+    @media (max-width: 560px) { .chart { height: 220px; } }
   `,
 })
 export class DashboardPage {

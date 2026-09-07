@@ -19,7 +19,7 @@ const blank = (): PlanItem => ({ name: '', met: 5, sets: 3, reps: 10, weightKg: 
   imports: [DecimalPipe, FormsModule, RouterLink, MatButtonModule, MatFormFieldModule, MatInputModule, MatIconModule, MatSelectModule, MatSlideToggleModule],
   template: `
     <div class="stack">
-      <div class="row between">
+      <div class="page-head">
         <h1>{{ id() ? 'Edit plan' : 'New plan' }}</h1>
         <a mat-button routerLink="/plans">Back to plans</a>
       </div>
@@ -27,8 +27,8 @@ const blank = (): PlanItem => ({ name: '', met: 5, sets: 3, reps: 10, weightKg: 
       <form (ngSubmit)="save()">
         <section class="panel">
           <div class="fields">
-            <mat-form-field appearance="outline"><mat-label>Name</mat-label><input matInput name="name" [(ngModel)]="name" required maxlength="80" /></mat-form-field>
-            <mat-form-field appearance="outline"><mat-label>Description (optional)</mat-label><input matInput name="desc" [(ngModel)]="description" maxlength="500" /></mat-form-field>
+            <mat-form-field><mat-label>Name</mat-label><input matInput name="name" [(ngModel)]="name" required maxlength="80" /></mat-form-field>
+            <mat-form-field><mat-label>Description (optional)</mat-label><input matInput name="desc" [(ngModel)]="description" maxlength="500" /></mat-form-field>
           </div>
           <mat-slide-toggle name="shared" [(ngModel)]="isShared">Share with everyone on the tracker</mat-slide-toggle>
           <p class="muted small" style="margin-top:6px">Shared plans show your display name. Others can log sessions from it or copy it, only you can edit it.</p>
@@ -71,12 +71,12 @@ const blank = (): PlanItem => ({ name: '', met: 5, sets: 3, reps: 10, weightKg: 
             <div class="custom">
               <h3>Your own exercise</h3>
               <div class="fields">
-                <mat-form-field appearance="outline"><mat-label>Name</mat-label><input matInput name="cname" [(ngModel)]="cName" maxlength="60" /></mat-form-field>
-                <mat-form-field appearance="outline"><mat-label>Equipment</mat-label>
+                <mat-form-field><mat-label>Name</mat-label><input matInput name="cname" [(ngModel)]="cName" maxlength="60" /></mat-form-field>
+                <mat-form-field><mat-label>Equipment</mat-label>
                   <mat-select name="ceq" [(ngModel)]="cEquipment">@for (e of equipmentKeys; track e) { <mat-option [value]="e">{{ equipment[e] }}</mat-option> }</mat-select></mat-form-field>
-                <mat-form-field appearance="outline"><mat-label>Muscle group</mat-label>
+                <mat-form-field><mat-label>Muscle group</mat-label>
                   <mat-select name="cmus" [(ngModel)]="cMuscle">@for (m of muscleKeys; track m) { <mat-option [value]="m">{{ muscles[m] }}</mat-option> }</mat-select></mat-form-field>
-                <mat-form-field appearance="outline"><mat-label>Intensity</mat-label>
+                <mat-form-field><mat-label>Intensity</mat-label>
                   <mat-select name="cmet" [(ngModel)]="cMet">@for (i of intensity; track i.met) { <mat-option [value]="i.met">{{ i.label }}</mat-option> }</mat-select></mat-form-field>
               </div>
               <div class="actions"><button type="button" mat-stroked-button (click)="addCustom()" [disabled]="!cName().trim()">Add to library and plan</button></div>
@@ -98,13 +98,13 @@ const blank = (): PlanItem => ({ name: '', met: 5, sets: 3, reps: 10, weightKg: 
     .mrow { padding: 4px 0; }
     .cell { display: block; }
     .cell span { display: none; }
-    .cell.timed { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+    .cell.timed { display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; }
     .unit { font-style: normal; font-size: 12px; color: var(--ink-2); }
-    .rowacts { display: flex; justify-content: flex-end; }
+    .rowacts { display: flex; flex-wrap: nowrap; justify-content: flex-end; align-items: center; }
     .rowacts .icon-btn { padding: 4px; }
     .rowacts .icon-btn.on { color: var(--blue); background: var(--blue-tint); }
     .rowacts .icon-btn:disabled { color: var(--hairline); background: none; cursor: default; }
-    .custom { margin-top: 16px; padding: 14px; border: 1px solid var(--hairline); border-radius: var(--radius); background: var(--ground); }
+    .custom { margin-top: 16px; padding: 14px; border: 1px solid var(--hairline); border-radius: 16px; background: var(--ground); }
     .custom h3 { font-size: 15px; margin-bottom: 10px; }
     @media (max-width: 560px) {
       .mhead { display: none; }
@@ -115,6 +115,7 @@ const blank = (): PlanItem => ({ name: '', met: 5, sets: 3, reps: 10, weightKg: 
       .mrow > :nth-child(4) { grid-area: kg; }
       .mrow > :nth-child(5) { grid-area: rest; }
       .rowacts { grid-area: acts; }
+      .cell.timed { flex-wrap: wrap; }
       .cell span { display: block; font-size: 12px; color: var(--ink-2); margin-bottom: 2px; flex-basis: 100%; }
     }
   `,

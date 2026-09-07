@@ -24,9 +24,9 @@ import { Logo } from '../shared/logo';
         <div class="or">or with email</div>
       }
       <form (ngSubmit)="submit()">
-        <mat-form-field appearance="outline"><mat-label>Email</mat-label>
+        <mat-form-field><mat-label>Email</mat-label>
           <input matInput type="email" name="email" [(ngModel)]="email" required autocomplete="email" /></mat-form-field>
-        <mat-form-field appearance="outline"><mat-label>Password</mat-label>
+        <mat-form-field><mat-label>Password</mat-label>
           <input matInput type="password" name="password" [(ngModel)]="password" required autocomplete="current-password" /></mat-form-field>
         @if (error()) { <p class="error">{{ error() }}</p> }
         <div class="actions">

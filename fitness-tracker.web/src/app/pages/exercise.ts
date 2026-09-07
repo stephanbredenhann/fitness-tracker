@@ -34,9 +34,9 @@ const METRICS: Record<Metric, { label: string; unit: string }> = {
   template: `
     @if (loading()) { <mat-progress-bar class="loading" mode="indeterminate" aria-label="Loading" /> }
     <div class="stack">
-      <div class="row between">
+      <div class="page-head">
         <h1>Exercise</h1>
-        <div class="row" style="gap:4px">
+        <div class="row">
           @if (strava()?.connected) {
             <button type="button" class="icon-btn" (click)="syncStrava()" [disabled]="syncing()" aria-label="Sync Strava" title="Sync Strava"><span class="material-icons" [class.spin]="syncing()">sync</span></button>
           }
@@ -45,7 +45,10 @@ const METRICS: Record<Metric, { label: string; unit: string }> = {
       </div>
 
       <section class="panel">
-        <div class="num" style="margin-bottom:8px"><span class="muted small">Burned</span><br><strong style="font-size:22px">{{ total() }}</strong> kcal</div>
+        <div class="burn num">
+          <span class="muted small">Burned</span>
+          <p><strong>{{ total() }}</strong> <span class="unit">kcal</span></p>
+        </div>
         @if (entries().length) {
           <ul class="list">
             @for (e of entries(); track e.id) {
@@ -70,17 +73,17 @@ const METRICS: Record<Metric, { label: string; unit: string }> = {
       <section class="panel">
         <h2>Log exercise</h2>
         <form (ngSubmit)="add()">
-          <div class="chips" role="radiogroup" aria-label="Activity" style="margin-bottom:16px">
+          <div class="chips" role="radiogroup" aria-label="Activity">
             @for (t of order; track t) {
               <button type="button" class="chip" [class.on]="type() === t" role="radio" [attr.aria-checked]="type() === t" (click)="type.set(t)">{{ labels[t] }}</button>
             }
           </div>
 
           <div class="fields">
-            <mat-form-field appearance="outline"><mat-label>Duration</mat-label>
+            <mat-form-field><mat-label>Duration</mat-label>
               <input matInput type="number" inputmode="numeric" name="min" [(ngModel)]="minutes" required min="1" max="1440" /><span matTextSuffix>min</span></mat-form-field>
             @if (isCardio()) {
-              <mat-form-field appearance="outline"><mat-label>Distance (optional)</mat-label>
+              <mat-form-field><mat-label>Distance (optional)</mat-label>
                 <input matInput type="number" inputmode="decimal" name="km" [(ngModel)]="distanceKm" min="0.01" max="1000" step="0.01" /><span matTextSuffix>km</span>
                 @if (pace(); as p) { <mat-hint>Pace {{ p }} /km</mat-hint> }
               </mat-form-field>
@@ -94,13 +97,13 @@ const METRICS: Record<Metric, { label: string; unit: string }> = {
                 <div class="mrow">
                   <input class="plain" placeholder="e.g. Dumbbell press" [ngModel]="m.name" (ngModelChange)="patch(i, { name: $event })" [ngModelOptions]="{ standalone: true }" list="library" maxlength="60" />
                   @if (m.durationSec !== null) {
-                    <span></span>
-                    <span class="timed"><input class="plain num" type="number" inputmode="numeric" min="5" max="3600" step="5" [ngModel]="m.durationSec" (ngModelChange)="patch(i, { durationSec: $event })" [ngModelOptions]="{ standalone: true }" aria-label="Seconds" /><em class="unit">s</em></span>
+                    <span class="cell"></span>
+                    <label class="cell timed"><span>Sec</span><input class="plain num" type="number" inputmode="numeric" min="5" max="3600" step="5" [ngModel]="m.durationSec" (ngModelChange)="patch(i, { durationSec: $event })" [ngModelOptions]="{ standalone: true }" aria-label="Seconds" /><em class="unit">s</em></label>
                   } @else {
-                    <input class="plain num" type="number" inputmode="numeric" min="1" max="20" [ngModel]="m.sets" (ngModelChange)="patch(i, { sets: $event })" [ngModelOptions]="{ standalone: true }" aria-label="Sets" />
-                    <input class="plain num" type="number" inputmode="numeric" min="1" max="500" [ngModel]="m.reps" (ngModelChange)="patch(i, { reps: $event })" [ngModelOptions]="{ standalone: true }" aria-label="Reps" />
+                    <label class="cell"><span>Sets</span><input class="plain num" type="number" inputmode="numeric" min="1" max="20" [ngModel]="m.sets" (ngModelChange)="patch(i, { sets: $event })" [ngModelOptions]="{ standalone: true }" aria-label="Sets" /></label>
+                    <label class="cell"><span>Reps</span><input class="plain num" type="number" inputmode="numeric" min="1" max="500" [ngModel]="m.reps" (ngModelChange)="patch(i, { reps: $event })" [ngModelOptions]="{ standalone: true }" aria-label="Reps" /></label>
                   }
-                  <input class="plain num" type="number" inputmode="decimal" min="0" max="500" step="0.5" [ngModel]="m.weightKg" (ngModelChange)="patch(i, { weightKg: $event })" [ngModelOptions]="{ standalone: true }" aria-label="Weight in kg" />
+                  <label class="cell"><span>kg</span><input class="plain num" type="number" inputmode="decimal" min="0" max="500" step="0.5" [ngModel]="m.weightKg" (ngModelChange)="patch(i, { weightKg: $event })" [ngModelOptions]="{ standalone: true }" aria-label="Weight in kg" /></label>
                   <div class="rowacts">
                     <button type="button" class="icon-btn" [class.on]="m.durationSec !== null" [attr.aria-pressed]="m.durationSec !== null" title="Time this exercise instead of counting reps" (click)="toggleTimed(i)"><span class="material-icons">timer</span></button>
                     <button type="button" class="icon-btn" (click)="removeMovement(i)" aria-label="Remove movement"><span class="material-icons">close</span></button>
@@ -108,20 +111,22 @@ const METRICS: Record<Metric, { label: string; unit: string }> = {
                 </div>
               }
               <datalist id="library">@for (x of library(); track x.id) { <option [value]="x.name"></option> }</datalist>
-              <button type="button" mat-button (click)="addMovement()">Add movement</button>
-              <a mat-button routerLink="/plans">Use a plan</a>
+              <div class="actions">
+                <button type="button" mat-button (click)="addMovement()">Add movement</button>
+                <a mat-button routerLink="/plans">Use a plan</a>
+              </div>
               <p class="muted small">0 kg means bodyweight. Heavier loads relative to your weight raise the estimate.</p>
             </div>
           }
 
           <div class="fields">
-            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="hinted"><mat-label>{{ type() === 'Other' ? 'Calories' : 'Calories (optional override)' }}</mat-label>
+            <mat-form-field><mat-label>{{ type() === 'Other' ? 'Calories' : 'Calories (optional override)' }}</mat-label>
               <input matInput type="number" inputmode="numeric" name="kcal" [(ngModel)]="kcal" min="0" max="10000" [required]="type() === 'Other'" [placeholder]="'' + (estimate() ?? '')" />
               <span matTextSuffix>kcal</span>
               @if (estimate() !== null && type() !== 'Other') { <mat-hint>Estimated {{ estimate() }} kcal at {{ weightKg() | number:'1.0-1' }} kg</mat-hint> }
               @else if (type() !== 'Other' && weightKg() === null) { <mat-hint>Log a weigh-in to get an estimate</mat-hint> }
             </mat-form-field>
-            <mat-form-field appearance="outline"><mat-label>Note</mat-label><input matInput name="note" [(ngModel)]="note" maxlength="120" /></mat-form-field>
+            <mat-form-field><mat-label>Note</mat-label><input matInput name="note" [(ngModel)]="note" maxlength="120" /></mat-form-field>
           </div>
           @if (error()) { <p class="error">{{ error() }}</p> }
           <div class="actions"><button mat-flat-button type="submit" [disabled]="busy()">Add</button></div>
@@ -129,17 +134,15 @@ const METRICS: Record<Metric, { label: string; unit: string }> = {
       </section>
 
       <section class="panel">
-        <div class="row between wrap-row" style="margin-bottom:14px">
-          <h2 style="margin:0">Trends</h2>
+        <div class="row between trends-head">
+          <h2>Trends</h2>
           <app-segmented [(value)]="days" [options]="ranges" label="Range" />
         </div>
-        <div style="margin-bottom:12px">
-          <app-segmented [value]="trendType()" (valueChange)="setTrendType($event)" [options]="trendTypeOptions" label="Activity" />
-        </div>
+        <app-segmented class="fullseg" [value]="trendType()" (valueChange)="setTrendType($event)" [options]="trendTypeOptions" label="Activity" />
         @if (sessions().length) {
-          <app-segmented class="metrics" [(value)]="metric" [options]="metricOptions()" label="Metric" />
+          <app-segmented class="fullseg" [(value)]="metric" [options]="metricOptions()" label="Metric" />
           <div class="chart"><canvas baseChart [type]="metric() === 'pace' ? 'line' : 'bar'" [data]="trendData()" [options]="trendOptions()"></canvas></div>
-          <p class="muted small" style="margin-top:10px">{{ summary() }}</p>
+          <p class="muted small summary">{{ summary() }}</p>
         } @else { <p class="empty">No {{ labels[trendType()].toLowerCase() }} in the last {{ days() }} days.</p> }
       </section>
     </div>
@@ -147,23 +150,48 @@ const METRICS: Record<Metric, { label: string; unit: string }> = {
   styles: `
     .spin { animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
+    .burn { margin-bottom: 8px; }
+    .burn p { display: flex; align-items: baseline; gap: 8px; }
+    .burn strong { font-size: 36px; font-weight: 700; line-height: 1.1; letter-spacing: -0.03em; }
+    .burn .unit { font-size: 16px; font-weight: 500; color: var(--ink-2); }
     .sets { margin-top: 4px; font-size: 13px; }
     .sets ul { list-style: none; margin: 6px 0 0; padding: 0 0 0 4px; }
     .sets li { padding: 2px 0; }
+    .chips { margin-bottom: 16px; }
     .movements { margin: 0 0 12px; }
     .mhead, .mrow { display: grid; grid-template-columns: 1fr 56px 72px 72px 64px; gap: 8px; align-items: center; }
-    .timed { display: flex; align-items: center; gap: 4px; }
-    .unit { font-style: normal; font-size: 12px; color: var(--ink-2); }
-    .rowacts { display: flex; justify-content: flex-end; }
-    .rowacts .icon-btn { padding: 4px; }
-    .rowacts .icon-btn.on { color: var(--blue); background: var(--blue-tint); }
     .mhead { padding: 0 0 6px; }
     .mrow { padding: 4px 0; }
-    .metrics { display: block; margin-bottom: 12px; }
+    .cell { display: block; min-width: 0; }
+    .cell > span { display: none; }
+    .cell.timed { display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: 4px; }
+    .unit { font-style: normal; font-size: 12px; color: var(--ink-2); }
+    .rowacts { display: flex; justify-content: flex-end; flex-wrap: nowrap; }
+    .rowacts .icon-btn { padding: 4px; }
+    .rowacts .icon-btn.on { color: var(--blue); background: var(--blue-tint); }
+    .trends-head { margin-bottom: 14px; }
+    .trends-head h2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .trends-head app-segmented { flex-shrink: 0; }
+    .fullseg { display: block; margin-bottom: 12px; }
     .chart { position: relative; height: 240px; }
-    .wrap-row { flex-wrap: wrap; }
+    .summary { margin-top: 10px; }
     @media (max-width: 560px) {
-      .mhead, .mrow { grid-template-columns: 1fr 48px 60px 60px 56px; gap: 6px; }
+      .mhead { display: none; }
+      .mrow {
+        grid-template-columns: repeat(3, 1fr);
+        grid-template-areas: "name name name" "sets reps kg" "acts acts acts";
+        gap: 8px; padding: 10px 0; border-top: 1px solid var(--hairline);
+      }
+      .mrow > :nth-child(1) { grid-area: name; }
+      .mrow > :nth-child(2) { grid-area: sets; }
+      .mrow > :nth-child(3) { grid-area: reps; }
+      .mrow > :nth-child(4) { grid-area: kg; }
+      .rowacts { grid-area: acts; }
+      .mrow > span.cell:empty { display: none; }
+      .mrow:has(.timed) { grid-template-areas: "name name name" "time time kg" "acts acts acts"; }
+      .cell.timed { grid-area: time; }
+      .cell > span { display: block; font-size: 12px; color: var(--ink-2); margin-bottom: 2px; }
+      .cell.timed > span { grid-column: 1 / -1; }
       .chart { height: 200px; }
     }
   `,

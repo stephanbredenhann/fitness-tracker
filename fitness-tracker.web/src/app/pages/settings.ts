@@ -22,9 +22,9 @@ import { ProfileForm } from '../shared/profile-form';
         <h2>Password</h2>
         <form (ngSubmit)="changePassword()">
           <div class="fields">
-            <mat-form-field appearance="outline"><mat-label>Current password</mat-label>
+            <mat-form-field><mat-label>Current password</mat-label>
               <input matInput type="password" name="old" [(ngModel)]="oldPassword" required autocomplete="current-password" /></mat-form-field>
-            <mat-form-field appearance="outline"><mat-label>New password</mat-label>
+            <mat-form-field><mat-label>New password</mat-label>
               <input matInput type="password" name="new" [(ngModel)]="newPassword" required minlength="8" autocomplete="new-password" /></mat-form-field>
           </div>
           @if (pwError()) { <p class="error">{{ pwError() }}</p> }
@@ -41,18 +41,20 @@ import { ProfileForm } from '../shared/profile-form';
           <h2>Connections</h2>
           @if (strava(); as s) {
             @if (s.connected) {
-              <div class="row between wrap">
-                <div><strong>Strava</strong><br><span class="muted small">Connected · {{ s.lastSyncAt ? 'last sync ' + ago(s.lastSyncAt) : 'not synced yet' }}</span></div>
-                <div class="actions" style="margin:0">
+              <div class="strava">
+                <div class="info"><strong>Strava</strong><br><span class="muted small">Connected · {{ s.lastSyncAt ? 'last sync ' + ago(s.lastSyncAt) : 'not synced yet' }}</span></div>
+                <div class="btns">
                   <button mat-stroked-button type="button" (click)="sync()" [disabled]="syncing()">{{ syncing() ? 'Syncing' : 'Sync now' }}</button>
                   <button mat-button type="button" (click)="disconnect()">Disconnect</button>
                 </div>
               </div>
               <p class="muted small" style="margin-top:10px">Sync pulls your runs, rides, walks and workouts since the last sync (30 days the first time). Calories are estimated from your weight, distance and time, the same way as manual entries.</p>
             } @else {
-              <div class="row between wrap">
-                <div><strong>Strava</strong><br><span class="muted small">Import activities into your exercise log.</span></div>
-                <a class="google" href="/auth/strava" style="width:auto">Connect Strava</a>
+              <div class="strava">
+                <div class="info"><strong>Strava</strong><br><span class="muted small">Import activities into your exercise log.</span></div>
+                <div class="btns">
+                  <a class="google" href="/auth/strava">Connect Strava</a>
+                </div>
               </div>
             }
           }
@@ -60,13 +62,28 @@ import { ProfileForm } from '../shared/profile-form';
         </section>
       }
 
-      <section class="panel row between">
-        <div><strong>{{ auth.me()?.email }}</strong><br><span class="muted small">Signed in</span></div>
+      <section class="panel account">
+        <div class="who"><strong>{{ auth.me()?.email }}</strong><br><span class="muted small">Signed in</span></div>
         <button mat-button type="button" (click)="logout()">Sign out</button>
       </section>
     </div>
   `,
-  styles: `.wrap { flex-wrap: wrap; row-gap: 10px; }`,
+  styles: `
+    .strava { display: flex; flex-wrap: nowrap; align-items: center; justify-content: space-between; gap: 12px; }
+    .strava .info { min-width: 0; }
+    .strava .btns { display: flex; flex-wrap: nowrap; align-items: center; gap: 12px; flex-shrink: 0; }
+    .strava .google { width: auto; }
+    .account { display: flex; flex-wrap: nowrap; align-items: center; justify-content: space-between; gap: 12px; }
+    .account .who { min-width: 0; overflow: hidden; }
+    .account .who strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .account button { flex-shrink: 0; white-space: nowrap; }
+    @media (max-width: 560px) {
+      .strava { flex-direction: column; align-items: stretch; }
+      .strava .btns { width: 100%; }
+      .strava .btns > * { flex: 1; }
+      .strava .google { width: 100%; }
+    }
+  `,
 })
 export class SettingsPage {
   private api = inject(Api); private router = inject(Router);
