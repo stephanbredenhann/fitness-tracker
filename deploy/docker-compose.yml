@@ -1,9 +1,25 @@
+# Production stack for the VPS. Lives beside the checkout at ~/fitness-tracker.
+#
+#   docker compose -f deploy/docker-compose.yml up -d --build
+#
+# No host port is published. Caddy (from the ~/stack compose project) reaches the app by
+# container name over stack_web. SQLite and data-protection keys live in ./data on the host.
+name: fitness-tracker
+
 services:
   app:
-    image: ghcr.io/OWNER/fitness-tracker:latest
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: fitness-tracker:latest
+    container_name: fitness-tracker
     restart: unless-stopped
-    ports:
-      - "127.0.0.1:8085:8080"
     volumes:
       - ./data:/data
     env_file: .env
+    networks: [web]
+
+networks:
+  web:
+    external: true
+    name: stack_web

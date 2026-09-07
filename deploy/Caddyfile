@@ -1,0 +1,4 @@
+# Append to ~/stack/Caddyfile, then: docker exec caddy caddy reload --config /etc/caddy/Caddyfile
+fitness.stephanbredenhann.dev {
+	reverse_proxy fitness-tracker:8080
+}
